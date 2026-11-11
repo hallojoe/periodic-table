@@ -1,0 +1,20 @@
+# Reading the element data
+
+The table contains the 118 elements recognised by IUPAC. The optional extension contains two hypothetical elements, 119 and 120, with the systematic names *ununennium* (Uue) and *unbinilium* (Ubn). Their period, group and shell populations are predictions. Neither has a measured atomic mass or an established discovery credit. [IUPAC periodic table](https://iupac.org/what-we-do/periodic-table-of-elements/) · [IUPAC naming recommendations](https://iupac.org/what-we-do/periodic-table-of-elements/naming-new-elements/)
+
+## Positions and colours
+
+Groups run from 1 to 18. The detached rows represent parts of periods 6 and 7. Each contains 15 elements, from La through Lu or Ac through Lr. A blank group for these entries leaves the choice of group 3 convention open. Their display columns locate them within the detached rows. The hypothetical row has its own display coordinates.
+
+Colours identify chemical families. Group 17 includes tennessine and group 18 includes oganesson. Their column positions are established, while their bulk chemistry remains little explored. “Unknown” marks elements whose family assignment in the source is tentative. All colours are editorial choices.
+
+## Property conventions
+
+- **Atomic mass.** Unbracketed entries are the central values from the CIAAW 2024 abridged standard atomic weights, with uncertainties omitted for readability. The numerical value corresponds to mean atomic mass in unified atomic mass units (u) for the reference composition. A bracketed whole number is a representative long-lived isotope's mass number, the count of protons and neutrons. Some candidates have overlapping half-life uncertainties. [Abridged standard atomic weights](https://ciaaw.org/abridged-atomic-weights.htm) · [Radioactive isotopes](https://ciaaw.org/radioactive-elements.htm)
+- **Phase and temperatures.** Temperatures in the dataset use kelvin. A null value means a measurement is unavailable here or the transition requires special conditions. Carbon and arsenic sublime at atmospheric pressure. Helium requires pressure to solidify. White phosphorus supplies the phosphorus transition temperatures. Estimates for astatine, francium and the heaviest elements are omitted. [Royal Society of Chemistry periodic table](https://periodic-table.rsc.org/)
+- **Electron shells.** Each population counts electrons with the same principal quantum number in a neutral atom. The populations sum to the atomic number, including exceptions such as palladium's empty fifth shell. For elements 104 and above the display flags the configuration as predicted. Bohr orbits illustrate shell populations. Distances, electron paths, and the graphical nucleus are schematic.
+- **Discovery.** Dates describe identification or a commonly credited isolation. Early preparation, identification as an element and independent confirmation sometimes happened in different years. “Antiquity” indicates that no individual discoverer is reliably known. The element pages give historical context. [RSC histories](https://periodic-table.rsc.org/history) · [Discovery credits](https://www.periodictable.one/history/discoverers)
+
+## Sources and reuse
+
+The local dataset adapts positions, shell counts, family classifications and physical properties from Bowserinator and the contributors to *Periodic-Table-JSON*. That compilation draws on Wikipedia contributors. This edition adds original short descriptions and source links, replaces the mass values, reconciles discovery information, and separates hypothetical entries. The adapted [element dataset](../app/elements.json) is distributed under Creative Commons Attribution-ShareAlike 3.0 Unported. [Upstream snapshot](https://github.com/Bowserinator/Periodic-Table-JSON/tree/a78c7a48fe7235cebd6153161a9e7fa70f0cfb30) · [Upstream attribution](https://github.com/Bowserinator/Periodic-Table-JSON/blob/a78c7a48fe7235cebd6153161a9e7fa70f0cfb30/LICENSE.md) · [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)
