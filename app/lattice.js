@@ -150,8 +150,8 @@ export class Lattice {
     return this.elements.filter(e => this.extended || !e.theoretical);
   }
   reset() {
-    this.pitch = .37;
-    this.yaw = -.27;
+    this.pitch = .32;
+    this.yaw = -.22;
     this.zoom = 1;
     this.panX = 0;
     this.panY = 0;
@@ -195,7 +195,7 @@ export class Lattice {
     const yaw = (this.flat ? 0 : this.yaw) * (1 - travel),
           pitch = (this.flat ? 0 : this.pitch) * (1 - travel);
     const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
-    const roll = (this.flat ? 0 : -.045) * (1 - travel), cr = Math.cos(roll), sr = Math.sin(roll);
+    const roll = (this.flat ? 0 : -.025) * (1 - travel), cr = Math.cos(roll), sr = Math.sin(roll);
     const scale = Math.min((w - 30) / 18.6, (h - 40) / (this.extended ? 11.95 : 10.25)) * this.zoom;
     const distance = 50, eye = lerp(distance, focus[2] + .035, travel);
     const project = ([x, y, z]) => {
@@ -289,18 +289,24 @@ export class Lattice {
       const [a, b, c] = p;
       if ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) <= 0) continue;
       path(ctx, p);
-      ctx.fillStyle = wire ? '#1b2728' : tint(col, [.18, .30, .31, .56, .30, .8][i]);
+      ctx.fillStyle = wire ? '#1b2728' : tint(col, [.18, .30, .31, .56, .30, .84][i]);
+      if (i === 5 && !wire && !travel) {
+        const enamel = ctx.createLinearGradient(a[0], a[1], c[0], c[1]);
+        enamel.addColorStop(0, tint(col, 1, 10));
+        enamel.addColorStop(1, tint(col, hot ? .64 : .78));
+        ctx.fillStyle = enamel;
+      }
       ctx.fill();
       ctx.strokeStyle = wire ? tint(col, .9) : tint(col, i === 5 ? 1 : .64);
       ctx.stroke();
       if (!dim) this.hits.push({poly: p, element: e});
       if (i !== 5) continue;
-      if (selected) {
+      if (selected || (!wire && !hot && !travel && alpha === 1)) {
         ctx.save();
-        ctx.strokeStyle = '#f6ffe4';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = selected ? '#f6ffe4' : col;
+        ctx.lineWidth = selected ? 2 : .7;
         ctx.shadowColor = col;
-        ctx.shadowBlur = 7;
+        ctx.shadowBlur = selected ? 7 : 3;
         ctx.stroke();
         ctx.restore();
       }
