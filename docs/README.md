@@ -1,24 +1,41 @@
 # Matter Atlas field guide
 
-[Launch the atlas](https://hallojoe.github.io/periodic-table/)
+[Open Matter Atlas](https://hallojoe.github.io/periodic-table/)
 
-![The element lattice, chemical families and Bohr-model inspector](https://hallojoe.github.io/periodic-table/screenshots/lattice.png)
+## Two views in one scene
 
-## Reading the table
+**Blocks** extrudes columns from the zero plane. **Bohr models** places each atom at the height of its column endpoint, with a stem connecting it to the plane. Both representations preserve the conventional table positions, the detached series, the active height method, selection and camera. The colour identifies the chemical family in Neon and Wireframe. Astrophage uses a warm gradient by atomic number.
 
-The wire bounding box dissolves as elements assemble from a randomly oriented Fibonacci sphere. Once the entrance completes, each symbol is fixed to its box face. Group numbers run across the top and period numbers down the left. The detached rows fill the marked positions in periods 6 and 7. Reduced-motion preferences skip the entrance and camera flight and hold the electron model still.
+![Bohr models in the table with radius heights centered on the median](https://hallojoe.github.io/periodic-table/screenshots/bohr-table.png)
 
-The default Neon palette distinguishes chemical families. Astrophage uses a warm atomic-number gradient, while Wireframe emphasizes the edges of each box. The legend can isolate any family in all three modes. **Show theoretical** adds two predicted period-eight entries below the confirmed table.
+## Height calculations
 
-## Inside beryllium
+The scale uses all available records, so filtering a family or toggling the theoretical row leaves the height of a given element consistent. Positive and negative directions mirror the geometry across the zero plane. In the signed view the median value is the baseline and both signs use the same scale factor.
 
-![Inside the beryllium box, with its electron shells and factual record](https://hallojoe.github.io/periodic-table/screenshots/beryllium.png)
+| Property | Quantity used for height |
+| --- | --- |
+| Atomic number | Square root of the atomic number |
+| Calculated atomic radius | Calculated radius in picometres |
+| Atomic weight | Numerical standard atomic weight. Bracketed isotope mass numbers have no value for this metric. |
+| Occupied electron shells | Number of shell populations greater than zero, including predicted populations where identified |
+| Melting point or boiling point | Recorded transition temperature in kelvin |
+| Liquid temperature range | Boiling point minus melting point in kelvin, when both are available |
 
-Select Be or search for “beryllium” and press Enter. The camera approaches the selected face and reveals the room. The neutral atom's four electrons occupy two shells, with two electrons in each. The record includes atomic mass, temperature data, discoverer and discovery year, plus a link to the element reference. The nucleus and shell geometry are schematic. [Data sources and conventions](data.md)
+For positive heights, the largest transformed value maps to 2.05 group spacings. Negative heights reverse that direction. In median mode, subtract the transformed median and divide by the largest absolute deviation before applying the same height scale. Missing values have a muted marker at zero in both representations. Their factual records remain accessible.
+
+The radius lookup supplements the v1 element records and covers hydrogen through radon. It uses the **calculated** column of the tabulation below. Radius depends on the definition, so a missing value stays unfilled. [Atomic radii tabulation](https://en.wikipedia.org/wiki/Atomic_radii_of_the_elements_(data_page)) · [WebElements calculated radii](https://winter.group.shef.ac.uk/webelements/periodicity/atomic_radius/) · [Wolfram 3D periodic table](https://demonstrations.wolfram.com/PeriodicTableIn3D/) · [Element data and attribution](data.md)
+
+## Selection and detail
+
+Click once to select an element and read its current height property. Click the same element again or use **Inspect element** to see its full record. The camera retreats, leaving the small, dim table in the scene behind the foreground atom. Drag to rotate the model on two axes, or use the arrow keys. **Back to table** or **Escape** returns to the original camera and selection.
+
+![Beryllium's rotatable model with its full record and the distant table](https://hallojoe.github.io/periodic-table/screenshots/beryllium.png)
+
+Search by name, symbol, or atomic number. A search result selects its element, including theoretical entries. Focus the table and use Enter to inspect. Reduced-motion settings skip camera animations and pause orbital motion while retaining manual rotation.
 
 ## Browser checks
 
-Start the local server as described in the [project README](../README.md). With Python 3, Chrome and a matching ChromeDriver available, run the same checks used by Pages.
+Start the server in the [project README](../README.md). With Python 3, Chrome and a matching ChromeDriver installed, run:
 
 ```sh
 python3 -m venv .venv
@@ -27,4 +44,4 @@ python -m pip install selenium==4.33.0
 python scripts/browser.py http://127.0.0.1:8000/ docs/screenshots
 ```
 
-The browser checks cover table picking, keyboard entry, element search, switching effects, family filtering, returning from a room and mobile layout. They also capture the lattice and beryllium room from the running application.
+The suite captures both table views and beryllium in detail. It covers first and second clicks, missing-value selection, independent atom rotation, camera return, theoretical entries and mobile layout.

@@ -1,29 +1,25 @@
 # Matter Atlas
 
-[Open the 3D periodic table](https://hallojoe.github.io/periodic-table/)
+[Open the periodic table](https://hallojoe.github.io/periodic-table/)
 
-Explore 118 elements in their conventional groups and periods, then travel inside a box to see its electron shells, physical properties and discovery history. The optional theoretical row adds elements 119 and 120.
+Switch between 3D element blocks and animated Bohr models in the same 18-group layout. Click an element to select it. Click it again to pull back from the table and rotate its atom beside its factual record.
 
-![Matter Atlas showing the full 3D periodic table and carbon's element inspector](https://hallojoe.github.io/periodic-table/screenshots/lattice.png)
+![Matter Atlas with element blocks and property-height controls](https://hallojoe.github.io/periodic-table/screenshots/lattice.png)
 
 ## Explore
 
-Drag to orbit, Shift-drag to pan, and use the wheel or the zoom controls to move closer. Hover over a box to inspect it. Select it to enter its room. Press Escape or **Back to lattice** to return. On a keyboard, focus the lattice, move with the arrow keys, and press Enter. Press **/** to find an element by name, symbol or atomic number.
+Choose a height property and display it above the zero plane, below it, or relative to its median. The property choices include calculated atomic radius, atomic number, atomic weight, occupied shells, melting and boiling points, and liquid temperature range. Unavailable values remain selectable at the baseline.
 
-Choose **Neon**, **Astrophage** or **Wireframe** in the scene header. Use the chemical-family chips to highlight related elements. **Flat view** aligns the camera with the table. Box depth increases with the square root of atomic number.
+Drag to orbit, Shift-drag to pan, and use the wheel or the zoom buttons to change scale. Search with **/** or navigate with the arrow keys. In detail view, drag or use the arrow keys to rotate the model. **Escape** restores the prior table view. The optional theoretical row adds elements 119 and 120.
+
+[Illustrated guide, height formulas and references](docs/README.md) · [Element records and attribution](docs/data.md)
 
 ## Run locally
 
-The application uses browser ES modules and Canvas 2D to project its 3D geometry. No JavaScript packages or build step are required.
+The app runs directly from the files in `app/` with no JavaScript dependencies.
 
 ```sh
 python3 -m http.server 8000 --directory app
 ```
 
-Open [localhost:8000](http://localhost:8000/). Run the data checks with `node scripts/validate.mjs` (Node 22+).
-
-## GitHub Pages
-
-The [Pages workflow](.github/workflows/pages.yml) validates the element records and runs desktop and mobile Chromium interaction tests. A successful push to `main` publishes the verified contents of `app/`, including screenshots from the browser run. Select **GitHub Actions** as the Pages publishing source.
-
-[Field guide and browser testing](docs/README.md) · [Data sources, attribution and scientific conventions](docs/data.md)
+Open [localhost:8000](http://localhost:8000/). Run the record and height checks with `node scripts/validate.mjs` (Node 22+). The [Pages workflow](.github/workflows/pages.yml) also exercises desktop and mobile Chromium, captures the documentation screenshots, and publishes a verified build after a push to `main`.

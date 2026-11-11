@@ -26,3 +26,28 @@ for (const [z, column, row] of [
 }
 console.log(
     'Validated 118 confirmed records, 2 theoretical records, table positions and shell counts.');
+
+const {heightMapping, metrics} = await import('../app/heights.js');
+const carbon = elements[5], hydrogen = elements[0], cesium = elements[54];
+assert.equal(metrics.radius.read(carbon), 67);
+assert.equal(metrics.radius.read(cesium), 298);
+assert.equal(metrics.radius.read(elements[86]), null);
+assert.equal(metrics.mass.read(elements[42]), null, 'An isotope mass number is not an atomic weight');
+assert.equal(metrics.liquid.read(carbon), null);
+for (const key of Object.keys(metrics)) {
+  const up = heightMapping(elements, key, 'up');
+  const down = heightMapping(elements, key, 'down');
+  const centered = heightMapping(elements, key, 'median');
+  for (const e of elements) {
+    const value = metrics[key].read(e);
+    if (value == null) {
+      assert.deepEqual([up.height(e), down.height(e), centered.height(e)], [null, null, null]);
+    } else {
+      assert.ok(up.height(e) >= 0 && up.height(e) <= 2.05);
+      assert.equal(down.height(e), -up.height(e));
+      assert.equal(Math.sign(centered.height(e)), Math.sign(value - centered.median));
+    }
+  }
+}
+assert.ok(heightMapping(elements, 'radius', 'up').height(cesium) > heightMapping(elements, 'radius', 'up').height(hydrogen));
+console.log('Verified height calculations, sign conventions, and unavailable values.');

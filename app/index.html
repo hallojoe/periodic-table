@@ -2,28 +2,45 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#f5f5ef"><title>Matter Atlas · Periodic table</title>
-<meta name="description" content="Explore the periodic table as a three-dimensional atlas. Enter an element to examine its electron shells, physical properties and discovery.">
+<meta name="theme-color" content="#131b1e"><title>Matter Atlas · Periodic table</title>
+<meta name="description" content="Explore the periodic table in three dimensions with element columns, Bohr models and property-based heights.">
 <link rel="icon" href="mark.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="mast"><div class="mast-inner"><a class="brand" href="./" aria-label="Matter Atlas home"><img src="mark.svg" alt="">Matter Atlas</a><nav aria-label="Main navigation"><button class="current" id="nav-table">Explorer</button><button id="guide">Field guide</button></nav><div class="mast-end"><span class="version">V1.0</span><a class="repo" href="https://github.com/hallojoe/periodic-table" aria-label="GitHub repository"><i data-i="github"></i></a></div></div></header>
-<main id="explorer" inert>
-<div class="heading"><div><div class="kicker"><b></b> INTERACTIVE ATLAS</div><h1>Periodic table<span>.</span></h1><p>Explore the elements in three dimensions.</p></div><div class="searchbox"><i data-i="search"></i><input id="search" type="search" aria-label="Search elements" placeholder="Find an element…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="matches" aria-autocomplete="list"><kbd>/</kbd><div id="matches" role="listbox" hidden></div></div></div>
+<main id="explorer" inert aria-label="Matter Atlas periodic table">
+<div class="appbar"><img class="mark" src="mark.svg" alt="Matter Atlas">
+<div class="segmented representation" role="group" aria-label="Table representation">
+<button id="blocks" aria-pressed="true"><i data-i="cube"></i>Blocks</button>
+<button id="atoms" aria-pressed="false"><i data-i="atom"></i>Bohr models</button></div>
+<div class="searchbox"><i data-i="search"></i><input id="search" type="search" aria-label="Search elements" placeholder="Find an element…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="matches" aria-autocomplete="list"><kbd>/</kbd><div id="matches" role="listbox" hidden></div></div>
+<button class="iconbtn" id="guide" aria-label="Field guide" title="Field guide"><i data-i="help"></i></button>
+<a class="iconbtn repo" href="https://github.com/hallojoe/periodic-table" aria-label="GitHub repository"><i data-i="github"></i></a></div>
 <div class="workspace">
-<section class="scene panel" aria-label="Interactive periodic table">
-<div class="scene-head"><h2><i data-i="cube"></i> Element lattice</h2><label class="effect"><i data-i="layers"></i><select id="effect" aria-label="Visual effect"><option>Neon</option><option>Astrophage</option><option>Wireframe</option></select><i data-i="chevron"></i></label></div>
-<div class="viewport" id="viewport"><div class="scene-meta"><span class="light"></span><span id="view-label">PERSPECTIVE VIEW</span></div><div class="canvas-scroll"><canvas id="lattice" aria-label="3D element lattice. Use arrow keys to preview elements and Enter to enter the focused element." tabindex="0"></canvas></div>
-<div class="scene-actions"><button id="minus" aria-label="Zoom out">−</button><button id="plus" aria-label="Zoom in">+</button><button id="reset" aria-label="Reset camera" title="Reset camera"><i data-i="reset"></i></button></div>
-<div class="screen-count" id="count"></div></div>
-<div class="scene-foot"><span><i data-i="drag"></i> Drag to orbit</span><span><i data-i="pointer"></i> Select to enter</span><button id="flat"><i data-i="grid"></i><span>Flat view</span></button></div>
+<section class="scene" aria-label="Interactive periodic table">
+<div class="viewport"><div class="scene-meta"><i></i><span id="view-label">Perspective</span></div>
+<canvas id="lattice" aria-label="Periodic table. Click once to select an element, then click it again to inspect. Use arrows and Enter on the keyboard." tabindex="0"></canvas>
+<div class="readout" id="count"></div>
+<div class="scene-actions" id="camera"><button id="minus" aria-label="Zoom out">−</button><button id="plus" aria-label="Zoom in">+</button><button id="reset" aria-label="Reset camera" title="Reset camera"><i data-i="reset"></i></button><button id="flat" title="Toggle front view" aria-pressed="false"><i data-i="grid"></i><span>Front view</span></button></div>
+<button id="leave" hidden><i data-i="back"></i> Back to table</button></div>
+<div class="scene-foot"><span><i data-i="drag"></i><span id="gesture">Drag to orbit</span></span><span id="hint">Click to select · Click again for details</span></div>
 </section>
-<aside class="inspector panel" aria-labelledby="inspector-title"><div class="panel-head"><h2 id="inspector-title"><i data-i="focus"></i> Element inspector</h2><span class="light"></span></div><div id="inspect"></div></aside>
-</div>
-<section class="legend panel"><div class="legend-heading"><h2><i data-i="swatches"></i> Chemical families</h2><button id="clear" hidden>Clear filter ×</button><label class="switch"><input type="checkbox" id="extended"> <span></span>Show theoretical</label></div><div id="families"></div></section>
-<footer><span><img src="mark.svg" alt=""> Matter Atlas</span><span>Periodic table explorer <b> / </b> Version 1.0</span></footer>
-</main>
-<dialog id="room"><canvas id="walls" aria-hidden="true"></canvas><div class="room-scroll"><header class="room-top"><button id="leave"><i data-i="back"></i> Back to lattice</button><span>ELEMENT INTERIOR</span></header><div id="room-content"></div></div></dialog>
-<dialog id="help"><button id="close-help" aria-label="Close field guide">×</button><div class="kicker"><b></b> MATTER ATLAS</div><h2>Field guide</h2><p>Each box occupies its place in the periodic table. Across a row, atomic number increases. Within a group, elements tend to share chemical properties.</p><h3>Read the lattice</h3><p>Color identifies the chemical family. Box depth increases with the square root of atomic number. The two detached rows belong to periods 6 and 7. Enable “Show theoretical” to explore proposed elements 119 and 120.</p><h3>Navigate</h3><p>Drag to orbit. Use + and − to zoom. Hover or use the arrow keys on the lattice to inspect. Click a box or press Enter to travel inside. Press / to search and Escape to return.</p><h3>Inside an element</h3><p>The Bohr diagram groups electrons by shell. Orbits, nucleus size and particle spacing are schematic. Unknown values and predicted properties are labeled in the record.</p><a href="https://github.com/hallojoe/periodic-table/blob/main/docs/data.md">Data sources and conventions ↗</a></dialog>
+<aside class="inspector">
+<section id="settings"><h2><i data-i="sliders"></i>Display</h2>
+<label for="metric">Height property</label><select id="metric"></select>
+<label for="direction">Height direction</label><select id="direction"><option value="up">Positive ↑</option><option value="down">Negative ↓</option><option value="median">Above / below median ±</option></select>
+<div class="scale"><div class="scale-line"></div><div id="range"></div><small id="baseline"></small></div>
+<label for="effect">Surface effect</label><select id="effect"><option>Neon</option><option>Astrophage</option><option>Wireframe</option></select>
+<label class="switch"><input type="checkbox" id="extended"><span></span>Show theoretical</label>
+</section>
+<section id="inspect" aria-live="polite"></section>
+</aside>
+<section class="legend" id="legend"><div class="legend-heading"><h2><i data-i="swatches"></i>Chemical families</h2><button id="clear" hidden>Clear filter ×</button></div><div id="families"></div></section>
+</div></main>
+<dialog id="help"><button id="close-help" aria-label="Close field guide">×</button><h2>Field guide</h2>
+<p>Choose Blocks or Bohr models to see the same groups and periods. Drag to orbit, Shift-drag to pan, and use + or − to zoom.</p>
+<h3>Read the height</h3><p>Positive and negative place values on opposite sides of the grid. Above / below median places the middle value at zero. Atomic number uses a square-root scale. Other properties use a linear scale. A dim element on the grid has no applicable value and can still be selected.</p>
+<h3>Inspect an atom</h3><p>Click once to select, then click the same element again to open its record. Search with /, or use arrows on the table and Enter. In detail view, drag or use the arrow keys to rotate the atom. Escape returns to the table.</p>
+<p>Shell populations come from the element records. Paths, distances and nucleus geometry are schematic. The optional period-eight entries are theoretical.</p>
+<a href="https://github.com/hallojoe/periodic-table/blob/main/docs/README.md">Height methods and sources ↗</a></dialog>
 <noscript>Enable JavaScript to explore the interactive periodic table.</noscript>
 <script type="module" src="main.js"></script></body></html>

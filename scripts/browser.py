@@ -26,68 +26,99 @@ with webdriver.Chrome(options=options) as browser:
     def ready():
         wait.until(lambda _: not el("explorer").get_property("inert"))
 
-    def open_search(query):
+    def choose(query):
         search = el("search")
         search.clear()
         search.send_keys(query)
         wait.until(lambda _: bool(browser.find_elements(By.CSS_SELECTOR, "#matches .match")))
         search.send_keys(Keys.ENTER)
-        wait.until(lambda _: el("room").is_displayed())
+
+    def detail_open():
+        wait.until(lambda _: el("leave").is_displayed())
+        wait.until(lambda _: el("lattice") == browser.switch_to.active_element)
+        # Entry ends with canvas focus. Pointer selections may already focus it.
+        wait.until(lambda _: el("lattice").get_attribute("aria-busy") == "false")
 
     def leave():
         el("leave").click()
-        ready()
+        wait.until(lambda _: not el("leave").is_displayed())
+
+    def click_cell(col, row, height=0):
+        # Front elevation of the normal table, including perspective.
+        rect = el("lattice").rect
+        scale = min((rect["width"]-30)/19.6, (rect["height"]-74)/11.1)
+        k = scale*50/(50-max(0,height))
+        at = ActionChains(browser).move_to_element_with_offset(
+            el("lattice"), round((col-9.5)*k), round((row-5)*k))
+        at.click().perform()
 
     browser.get(url)
     ready()
     assert el("count").text == "118 ELEMENTS"
+    choose("C")
     assert el("inspect").find_element(By.TAG_NAME, "h3").text == "Carbon"
+    assert not el("leave").is_displayed()
     browser.save_screenshot(str(output / "lattice.png"))
-    # Open the focused box through the keyboard, then exercise pointer picking.
-    el("lattice").send_keys(Keys.ENTER)
-    wait.until(lambda _: el("room").is_displayed())
-    assert "Carbon" in el("room-content").text
-    leave()
     el("flat").click()
-    rect = el("lattice").rect
-    width, height = rect["width"], rect["height"]
-    scale = min((width - 30) / 18.6, (height - 40) / 10.25)
-    # Flat projection of H's centre, relative to the canvas centre.
-    k = scale * 50 / (50 - .304)
-    ActionChains(browser).move_to_element_with_offset(el("lattice"), round(-8.5 * k), round(-4 * k)).click().perform()
-    wait.until(lambda _: el("room").is_displayed())
-    assert "Hydrogen" in el("room-content").text
+    Select(el("metric")).select_by_value("boil")
+    click_cell(1, 1)
+    assert "Hydrogen" in el("inspect").text and not el("leave").is_displayed()
+    # Carbon has no boiling point in the source. Its dim, flat cell still takes both clicks.
+    click_cell(14, 2)
+    assert "Carbon" in el("inspect").text and "Unavailable" in el("inspect").text
+    assert not el("leave").is_displayed()
+    click_cell(14, 2)
+    detail_open()
     leave()
     for effect in ["Wireframe", "Astrophage", "Neon"]:
         Select(el("effect")).select_by_visible_text(effect)
-        assert el("effect").get_attribute("value") == effect
+    el("atoms").click()
+    assert el("atoms").get_attribute("aria-pressed") == "true"
+    click_cell(2, 2)
+    assert "Beryllium" in el("inspect").text and not el("leave").is_displayed()
+    click_cell(2, 2)
+    detail_open()
+    assert "1797" in el("inspect").text
+    browser.execute_cdp_cmd("Emulation.setEmulatedMedia", {"features":[{"name":"prefers-reduced-motion","value":"reduce"}]})
+    # With orbital motion paused, changing pixels verifies manual rotation.
+    el("lattice").send_keys(Keys.ARROW_RIGHT)
+    before = el("lattice").screenshot_as_png
+    ActionChains(browser).move_to_element(el("lattice")).click_and_hold().move_by_offset(64, 35).release().perform()
+    wait.until(lambda _: before != el("lattice").screenshot_as_png)
+    browser.save_screenshot(str(output / "beryllium.png"))
+    el("lattice").send_keys(Keys.ESCAPE)
+    wait.until(lambda _: not el("leave").is_displayed())
+    Select(el("direction")).select_by_value("down")
+    Select(el("metric")).select_by_value("radius")
+    assert "112 pm" in el("inspect").text
+    Select(el("direction")).select_by_value("median")
+    assert "Median" in el("baseline").text
     el("plus").click()
     el("minus").click()
     el("reset").click()
-    assert el("view-label").text == "PERSPECTIVE VIEW"
+    browser.save_screenshot(str(output / "bohr-table.png"))
     browser.find_element(By.CSS_SELECTOR, '[data-family="noble"]').click()
     assert el("count").text == "7 ELEMENTS"
     el("clear").click()
-    open_search("Be")
-    assert "Beryllium" in el("room-content").text
-    assert "1797" in el("room-content").text
-    browser.save_screenshot(str(output / "beryllium.png"))
+    choose("119")
+    assert el("extended").is_selected() and "Unavailable" in el("inspect").text
+    el("enter").click()
+    detail_open()
+    assert "Predicted electrons per shell" in el("inspect").text
     leave()
-    open_search("119")
-    assert "Ununennium" in el("room-content").text
-    assert "PREDICTED" in el("room-content").text
-    leave()
-    assert el("extended").is_selected()
     el("guide").click()
     assert el("help").is_displayed()
     el("close-help").click()
-    browser.set_window_size(390, 844)
+    browser.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {"width":390,"height":844,"deviceScaleFactor":1,"mobile":True})
     browser.get(url)
     ready()
     assert js("return document.documentElement.scrollWidth <= innerWidth")
-    open_search("Og")
-    assert "Oganesson" in el("room-content").text
-    assert "PREDICTED" in el("room-content").text
+    el("atoms").click()
+    choose("Og")
+    assert "Oganesson" in el("inspect").text
+    el("enter").click()
+    detail_open()
+    assert "Predicted electrons per shell" in el("inspect").text
     leave()
     errors = [m for m in browser.get_log("browser") if m["level"] == "SEVERE"]
     assert not errors, errors

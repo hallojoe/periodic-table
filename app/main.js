@@ -1,17 +1,16 @@
+import {heightMapping, metrics} from './heights.js';
 import {icon} from './icons.js';
 import {families, Lattice, reduced} from './lattice.js';
-import {drawModel, drawWalls} from './model.js';
 
 const $ = id => document.getElementById(id);
-const explorer = $('explorer'), room = $('room'), help = $('help'), search = $('search'),
-      matches = $('matches');
+const explorer = $('explorer'), help = $('help'), search = $('search'), matches = $('matches');
 const escape = s => String(s).replace(
     /[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;'}[c]));
 const data = await fetch(new URL('elements.json', import.meta.url)).then(r => {
   if (!r.ok) throw Error('Element data unavailable');
   return r.json();
 });
-let selected, previousFocus, modelFrame = 0, lastModelFrame = -100, results = [], active = -1;
+let selected = null, detailed = false, results = [], active = -1;
 const massLabel = e => e.mass.startsWith('[') ? 'Isotope mass number' : 'Atomic mass';
 const massValue = e => e.mass === '—' ? 'Unknown' : e.mass.startsWith('[') ? e.mass : e.mass + ' u';
 const measure = v => v == null ?
@@ -27,101 +26,133 @@ const facts = items => '<dl class="facts">' +
 const table = new Lattice($('lattice'), data, inspect, enter, () => {
   explorer.inert = false;
 });
-function animateModel(now) {
-  cancelAnimationFrame(modelFrame);
-  if (!document.hidden && (now - lastModelFrame > 45 || reduced.matches)) {
-    lastModelFrame = now;
-    const c = $(room.open ? 'large-model' : 'small-model');
-    if (c && selected) drawModel(c, selected, now, room.open);
+function renderRecord() {
+  const panel = $('inspect');
+  if (!selected) {
+    panel.innerHTML = '<h2>' + icon('focus') +
+        'Selection</h2><p class="muted">Select an element to see its record.</p>';
+    return;
   }
-  if (!reduced.matches && !document.hidden) modelFrame = requestAnimationFrame(animateModel);
+  const e = selected, metric = table.mapping.metric;
+  const property = metric.read(e);
+  const unitValue = Number.isFinite(property) ? formatValue(property, metric.unit) : 'Unavailable';
+  const temperature = v => {
+    if ([6, 33].includes(e.number) && v == null) return 'Sublimes at 1 atm';
+    if (e.number === 2 && v == null) return 'Requires pressure';
+    return measure(v);
+  };
+  const full = [
+    ['Atomic number', e.number], [massLabel(e), massValue(e)],
+    ['Period / group', e.period + ' / ' + (e.group ?? 'f-block series')],
+    ['Phase at room temperature', e.phase], ['Melting point', temperature(e.melt)],
+    ['Boiling point', temperature(e.boil)],
+    [
+      e.shellsPredicted ? 'Predicted electrons per shell' : 'Electrons per shell',
+      e.shells.join(' · ')
+    ],
+    ['Discovery', e.year ?? 'Unconfirmed'], ['Discovered by', e.discoveredBy ?? 'Unknown']
+  ];
+  const brief = [
+    [metric.label, unitValue], ['Period / group', e.period + ' / ' + (e.group ?? 'f-block series')],
+    ['Phase', e.phase]
+  ];
+  panel.innerHTML = '<h2>' + icon(detailed ? 'atom' : 'focus') +
+      (detailed ? 'Element record' : 'Selection') + '</h2>' +
+      '<div class="identity"><div class="symbol" style="--c:' + families[e.category][1] +
+      '"><small>' + e.number + '</small><strong>' + escape(e.symbol) + '</strong></div><div><h3>' +
+      escape(e.name) + '</h3>' + family(e) + '</div></div>' +
+      (detailed ? '<p class="summary">' + escape(e.summary) + '</p>' : '') +
+      facts(detailed ? full : brief) +
+      (detailed ?
+           '<a class="source" href="' + escape(e.source) +
+               '" target="_blank" rel="noopener">Element reference ↗</a>' :
+           '<button class="enter" id="enter">Inspect element ' + icon('arrow') + '</button>');
+  if (!detailed) $('enter').onclick = () => enter(e);
 }
-function refreshModel() {
-  lastModelFrame = -100;
-  cancelAnimationFrame(modelFrame);
-  modelFrame = requestAnimationFrame(animateModel);
-}
-document.addEventListener('visibilitychange', refreshModel);
-reduced.addEventListener('change', refreshModel);
 function inspect(e) {
-  if (!e || selected === e) return;
+  if (!e || detailed || table.locked) return;
   selected = e;
   table.selected = e.number;
+  renderRecord();
   table.drawSoon();
-  $('inspect').innerHTML = '<figure class="specimen"><canvas id="small-model" aria-label="' +
-      escape(e.name) +
-      ' Bohr model"></canvas><figcaption class="bohr-tag">BOHR MODEL</figcaption></figure><div class="spec-info"><div class="identity"><div class="symbol"><small>' +
-      e.number + '</small><strong>' + escape(e.symbol) + '</strong></div><div><h3>' +
-      escape(e.name) + '</h3>' + family(e) + '</div></div>' +
-      facts([['Atomic number', e.number], [massLabel(e), massValue(e)], ['Phase', e.phase]]) +
-      '<button class="enter" id="enter">Enter element ' + icon('arrow') + '</button></div>';
-  $('enter').onclick = () => enter(selected);
-  refreshModel();
 }
+function formatValue(v, unit) {
+  return Number(v.toFixed(3)).toLocaleString('en-US', {maximumFractionDigits: 3}) +
+      (unit ? ' ' + unit : '');
+}
+function updateMetric() {
+  const mapping = heightMapping(data, $('metric').value, $('direction').value);
+  table.mapping = mapping;
+  const format = v => formatValue(v, mapping.metric.unit);
+  $('range').innerHTML =
+      '<span>' + format(mapping.min) + '</span><span>' + format(mapping.max) + '</span>';
+  const scale = $('metric').value === 'number' ? 'Square-root scale' : 'Linear scale';
+  $('baseline').textContent = scale + ' · ' +
+      ($('direction').value === 'median' ? 'Median ' + format(mapping.median) : 'Zero baseline');
+  renderRecord();
+  table.drawSoon();
+}
+$('metric').innerHTML = Object.entries(metrics)
+                            .map(([id, m]) => '<option value="' + id + '">' + m.label + '</option>')
+                            .join('');
+$('metric').onchange = updateMetric;
+$('direction').onchange = updateMetric;
+function setView(view) {
+  table.view = view;
+  for (const id of ['blocks', 'atoms']) $(id).setAttribute('aria-pressed', String(view === id));
+  table.drawSoon();
+}
+$('blocks').onclick = () => setView('blocks');
+$('atoms').onclick = () => setView('atoms');
+document.addEventListener('visibilitychange', () => table.drawSoon());
+reduced.addEventListener('change', () => table.drawSoon());
 function closeSearch() {
   matches.hidden = true;
   search.setAttribute('aria-expanded', 'false');
   search.removeAttribute('aria-activedescendant');
   active = -1;
 }
+function detailUI(open) {
+  detailed = open;
+  document.querySelector('.workspace').classList.toggle('details', open);
+  $('settings').hidden = open;
+  $('camera').hidden = open;
+  $('leave').hidden = !open;
+  $('legend').inert = open;
+  document.querySelector('.representation').inert = open;
+  document.querySelector('.searchbox').inert = open;
+  $('view-label').textContent = open ? 'Element detail' :
+      table.flat                     ? 'Front elevation' :
+                                       'Perspective';
+  $('gesture').textContent = open ? 'Drag to rotate atom' : 'Drag to orbit';
+  $('hint').textContent =
+      open ? 'Arrow keys rotate · Esc to return' : 'Click to select · Click again for details';
+  $('lattice').setAttribute(
+      'aria-label',
+      open ?
+          'Rotate ' + selected.name + ' Bohr model with arrow keys. Escape returns to table.' :
+          'Periodic table. Click once to select and again to inspect. Use arrows and Enter on the keyboard.');
+  renderRecord();
+}
 function enter(e) {
-  if (table.locked || room.open) return;
-  if (e.theoretical && !table.extended) {
-    $('extended').checked = true;
-    setExtended();
-  }
+  if (!e || detailed || table.locked) return;
   inspect(e);
-  previousFocus = document.activeElement;
   closeSearch();
-  explorer.inert = true;
-  table.fly(e, () => {
-    const temperature = v => [6, 33].includes(e.number) && v == null ? 'Sublimes at 1 atm' :
-        e.number === 2 && v == null                                  ? 'Requires pressure' :
-                                                                       measure(v);
-    const props = [
-      ['Atomic number', e.number], [massLabel(e), massValue(e)],
-      ['Period / group', e.period + ' / ' + (e.group ?? 'f-block series')],
-      ['Phase at room temperature', e.phase], ['Melting point', temperature(e.melt)],
-      ['Boiling point', temperature(e.boil)], ['Discovery', e.year ?? 'Unconfirmed'],
-      ['Discovered by', e.discoveredBy ?? 'Unknown']
-    ];
-    $('room-content').innerHTML =
-        '<div class="room-grid"><div class="room-model"><canvas id="large-model" aria-label="Bohr model of ' +
-        escape(e.name) + '"></canvas><p>' +
-        (e.shellsPredicted ? 'PREDICTED ELECTRON SHELLS' : 'ELECTRONS PER SHELL') + '<br><br>' +
-        e.shells.join(' · ') + '</p></div><article class="room-card"><div class="kicker"><b></b>' +
-        (e.theoretical ? 'THEORETICAL ELEMENT' : 'ELEMENT ' + String(e.number).padStart(3, '0')) +
-        ' / ' + escape(e.symbol) + '</div><h2>' + escape(e.name) + '</h2>' + family(e) + '<p>' +
-        escape(e.summary) + '</p>' + facts(props) + '<a href="' + escape(e.source) +
-        '" target="_blank" rel="noopener">Element reference ↗</a></article></div>';
-    room.showModal();
-    document.body.style.overflow = 'hidden';
-    $('leave').focus();
-    drawWalls($('walls'), families[e.category][1]);
-    refreshModel();
-  });
+  detailUI(true);
+  table.focusDetail(true, () => $('lattice').focus({preventScroll: true}));
 }
 function leave() {
-  room.close();
+  if (!detailed || table.locked) return;
+  table.focusDetail(false, () => {
+    detailUI(false);
+    $('lattice').focus({preventScroll: true});
+  });
 }
-room.addEventListener('close', () => {
-  document.body.style.overflow = '';
-  explorer.inert = false;
-  refreshModel();
-  (previousFocus?.isConnected && previousFocus !== document.body ? previousFocus : $('lattice'))
-      .focus({preventScroll: true});
-});
 $('leave').onclick = leave;
 $('guide').onclick = () => {
   if (!table.locked) help.showModal();
 };
 $('close-help').onclick = () => help.close();
-help.onclick = e => {
-  if (e.target === help && e.offsetX < 0) help.close();
-};
-$('nav-table').onclick = () => {
-  if (!table.locked) $('lattice').focus({preventScroll: true});
-};
 function legends() {
   const available = Object.entries(families).filter(
       ([key]) => (key !== 'theoretical' || table.extended) && data.some(e => e.category === key));
@@ -141,7 +172,11 @@ function legends() {
 function setFilter(key) {
   table.filter = key;
   legends();
-  if (key && selected.category !== key) inspect(table.list().find(e => e.category === key));
+  if (key && selected && selected.category !== key) {
+    selected = null;
+    table.selected = null;
+    renderRecord();
+  }
   table.drawSoon();
 }
 $('families').onclick = e => {
@@ -151,7 +186,11 @@ $('families').onclick = e => {
 $('clear').onclick = () => setFilter(null);
 function setExtended() {
   table.extended = $('extended').checked;
-  if (!table.extended && selected.theoretical) inspect(data[5]);
+  if (!table.extended && selected?.theoretical) {
+    selected = null;
+    table.selected = null;
+    renderRecord();
+  }
   if (!table.extended && table.filter === 'theoretical') table.filter = null;
   legends();
   table.drawSoon();
@@ -165,8 +204,9 @@ $('minus').onclick = () => table.zoomBy(1 / 1.2);
 $('plus').onclick = () => table.zoomBy(1.2);
 function flat(value) {
   table.flat = value;
-  $('flat').querySelector('span').textContent = value ? '3D view' : 'Flat view';
-  $('view-label').textContent = value ? 'FRONT ELEVATION' : 'PERSPECTIVE VIEW';
+  $('flat').setAttribute('aria-pressed', String(value));
+  $('flat').querySelector('span').textContent = value ? '3D view' : 'Front view';
+  $('view-label').textContent = value ? 'Front elevation' : 'Perspective';
   table.reset();
 }
 $('flat').onclick = () => flat(!table.flat);
@@ -208,7 +248,17 @@ function openResult(i) {
   if (results[i]) {
     search.value = '';
     if (table.filter && table.filter !== results[i].category) setFilter(null);
-    enter(results[i]);
+    const e = results[i];
+    if (e.theoretical && !table.extended) {
+      $('extended').checked = true;
+      setExtended();
+    }
+    closeSearch();
+    if (selected === e)
+      enter(e);
+    else
+      inspect(e);
+    $('lattice').focus({preventScroll: true});
   }
 }
 search.oninput = runSearch;
@@ -240,15 +290,16 @@ document.addEventListener('focusin', e => {
   if (!e.target.closest('.searchbox')) closeSearch();
 });
 document.addEventListener('keydown', e => {
-  if (e.key === '/' && !e.metaKey && !e.ctrlKey && !table.locked && !room.open && !help.open &&
+  if (e.key === 'Escape' && detailed && !help.open) {
+    e.preventDefault();
+    leave();
+    return;
+  }
+  if (e.key === '/' && !e.metaKey && !e.ctrlKey && !table.locked && !detailed && !help.open &&
       document.activeElement !== search) {
     e.preventDefault();
     search.focus();
   }
 });
-window.addEventListener('resize', () => {
-  if (room.open) drawWalls($('walls'), families[selected.category][1]);
-  refreshModel();
-});
-inspect(data.find(e => e.symbol === 'C'));
+updateMetric();
 legends();

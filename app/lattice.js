@@ -1,3 +1,6 @@
+import {heightMapping} from './heights.js';
+import {drawAtom} from './model.js';
+
 // All points are in table coordinates. One unit separates neighbouring group centres.
 export const families = {
   alkali: ['Alkali metals', '#f29c74'],
@@ -49,9 +52,7 @@ function inside(x, y, poly) {
   }
   return true;
 }
-const pose = e =>
-    [e.column - 9.5, e.row - 4.9 + (e.row > 7 ? .46 : 0) + (e.theoretical ? .4 : 0),
-     .26 + Math.sqrt(e.number) * .044];
+const pose = e => [e.column - 9.5, e.row - 4.9 + (e.row > 7 ? .46 : 0) + (e.theoretical ? .4 : 0)];
 const boxFaces =
     [[0, 3, 2, 1], [0, 4, 7, 3], [1, 2, 6, 5], [0, 1, 5, 4], [3, 7, 6, 2], [4, 5, 6, 7]];
 function corners(x, y, z, s) {
@@ -65,7 +66,12 @@ export class Lattice {
       preview,
       enter,
       ready,
-      selected: 6,
+      selected: null,
+      view: 'blocks',
+      detail: 0,
+      mapping: heightMapping(elements, 'number', 'up'),
+      atomYaw: 0,
+      atomPitch: 0,
       effect: 'Neon',
       filter: null,
       extended: false,
@@ -87,60 +93,96 @@ export class Lattice {
     new ResizeObserver(() => this.drawSoon()).observe(canvas);
     canvas.addEventListener('pointerdown', ev => {
       if (this.locked || ev.button !== 0) return;
-      this.drag = {x: ev.clientX, y: ev.clientY, moved: false, panning: ev.shiftKey};
+      if (this.drag) return;
+      this.drag = {
+        id: ev.pointerId,
+        x: ev.clientX,
+        y: ev.clientY,
+        lastX: ev.clientX,
+        lastY: ev.clientY,
+        moved: false,
+        panning: ev.shiftKey
+      };
       canvas.setPointerCapture(ev.pointerId);
     });
     canvas.addEventListener('pointermove', ev => {
       if (this.locked) return;
-      if (this.drag) {
-        const dx = ev.movementX, dy = ev.movementY;
-        if (Math.hypot(ev.clientX - this.drag.x, ev.clientY - this.drag.y) > 4)
-          this.drag.moved = true;
-        if (this.drag.moved) {
-          if (this.drag.panning || this.flat) {
-            this.panX += dx;
-            this.panY += dy;
-          } else {
-            this.yaw = clamp(this.yaw + dx * .007, -.98, .98);
-            this.pitch = clamp(this.pitch - dy * .007, -.88, .88);
-          }
-          this.drawSoon();
-        }
-      } else if (ev.pointerType === 'mouse') {
-        const e = this.pick(ev);
-        canvas.style.cursor = e ? 'pointer' : 'grab';
-        if (e) this.preview(e);
+      if (!this.drag) {
+        canvas.style.cursor = this.detail ? 'grab' : this.pick(ev) ? 'pointer' : 'grab';
+        return;
       }
+      const d = this.drag;
+      if (d.id !== ev.pointerId) return;
+      if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) > 4) d.moved = true;
+      if (!d.moved) return;
+      const dx = ev.clientX - d.lastX, dy = ev.clientY - d.lastY;
+      d.lastX = ev.clientX;
+      d.lastY = ev.clientY;
+      if (this.detail) {
+        this.atomYaw += dx * .012;
+        this.atomPitch -= dy * .012;
+      } else if (d.panning || this.flat) {
+        this.panX += dx;
+        this.panY += dy;
+      } else {
+        this.yaw = clamp(this.yaw + dx * .007, -1.1, 1.1);
+        this.pitch = clamp(this.pitch - dy * .007, -1.08, 1.08);
+      }
+      this.drawSoon();
     });
     canvas.addEventListener('pointerup', ev => {
-      if (!this.drag) return;
+      if (!this.drag || ev.pointerId !== this.drag.id) return;
       const moved = this.drag.moved;
       this.drag = null;
-      if (!moved) {
+      if (!moved && !this.detail) {
         const e = this.pick(ev);
-        if (e) this.enter(e);
+        if (e) {
+          if (this.selected === e.number)
+            this.enter(e);
+          else
+            this.preview(e);
+        }
       }
     });
     canvas.addEventListener('pointercancel', () => this.drag = null);
     canvas.addEventListener('wheel', ev => {
-      if (this.locked) return;
+      if (this.locked || this.detail) return;
       ev.preventDefault();
       this.zoomBy(Math.exp(-ev.deltaY * .0015));
     }, {passive: false});
     canvas.addEventListener('keydown', ev => {
       if (this.locked) return;
-      const visible = this.list().filter(e => !this.filter || e.category === this.filter),
-            index = visible.findIndex(e => e.number === this.selected), e = visible[index];
-      if (ev.key === 'Enter' && e) {
-        ev.preventDefault();
-        return this.enter(e);
-      }
       const step = {ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1, ArrowDown: 1}[ev.key];
+      if (this.detail) {
+        if (step) {
+          ev.preventDefault();
+          if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight')
+            this.atomYaw += step * .2;
+          else
+            this.atomPitch += step * .2;
+          this.drawSoon();
+        }
+        return;
+      }
+      const visible = this.list().filter(e => !this.filter || this.filter === e.category);
+      const index = visible.findIndex(e => e.number === this.selected), e = visible[index];
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        if (e)
+          this.enter(e);
+        else
+          this.preview(visible[0]);
+        return;
+      }
       if (!step) return;
       ev.preventDefault();
+      if (!e) {
+        this.preview(visible[0]);
+        return;
+      }
       let next;
       if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown')
-        next = visible.filter(v => v.column === e?.column && (v.row - e.row) * step > 0)
+        next = visible.filter(v => v.column === e.column && (v.row - e.row) * step > 0)
                    .sort((a, b) => Math.abs(a.row - e.row) - Math.abs(b.row - e.row))[0];
       this.preview(next || visible[(index + step + visible.length) % visible.length]);
     });
@@ -150,7 +192,7 @@ export class Lattice {
     return this.elements.filter(e => this.extended || !e.theoretical);
   }
   reset() {
-    this.pitch = .32;
+    this.pitch = .48;
     this.yaw = -.22;
     this.zoom = 1;
     this.panX = 0;
@@ -173,11 +215,16 @@ export class Lattice {
         this.draw(t);
       });
   }
-  fly(e, done) {
+  focusDetail(open, done) {
     if (this.locked) return;
     this.drag = null;
     this.locked = true;
-    this.flight = {e, start: performance.now(), done};
+    if (open) {
+      this.atomYaw = this.flat ? 0 : this.yaw;
+      this.atomPitch = this.flat ? 0 : this.pitch;
+    }
+    this.canvas.setAttribute('aria-busy','true');
+    this.flight = {from: this.detail, to: open ? 1 : 0, start: performance.now(), done};
     this.drawSoon();
   }
   draw(now) {
@@ -188,27 +235,26 @@ export class Lattice {
     this.hits = [];
     const time = reduced.matches ? 9000 : now - this.start, building = time < 610;
     const intro = clamp((time - 540) / 1650, 0, 1);
-    const flight = this.flight,
-          travel =
-              flight ? (reduced.matches ? 1 : smooth(clamp((now - flight.start) / 920, 0, 1))) : 0;
-    const focus = flight ? pose(flight.e) : [0, 0, 0];
-    const yaw = (this.flat ? 0 : this.yaw) * (1 - travel),
-          pitch = (this.flat ? 0 : this.pitch) * (1 - travel);
+    const flight = this.flight;
+    const t = flight ? (reduced.matches ? 1 : clamp((now - flight.start) / 850, 0, 1)) : 1;
+    if (flight) this.detail = lerp(flight.from, flight.to, smooth(t));
+    const travel = this.detail;
+    const yaw = this.flat ? 0 : this.yaw, pitch = this.flat ? 0 : this.pitch;
     const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
-    const roll = (this.flat ? 0 : -.025) * (1 - travel), cr = Math.cos(roll), sr = Math.sin(roll);
-    const scale = Math.min((w - 30) / 18.6, (h - 40) / (this.extended ? 11.95 : 10.25)) * this.zoom;
-    const distance = 50, eye = lerp(distance, focus[2] + .035, travel);
+    const roll = this.flat ? 0 : -.025, cr = Math.cos(roll), sr = Math.sin(roll);
+    const scale = Math.min((w - 30) / 19.6, (h - 74) / (this.extended ? 12.4 : 11.1)) *
+        lerp(this.zoom, 1, travel);
+    const eye = lerp(50, 295, travel);
+    const centreX = lerp(w * .5, w * .20, travel) + this.panX * (1 - travel);
+    const centreY = lerp(h * .5, h * .83, travel) + this.panY * (1 - travel);
     const project = ([x, y, z]) => {
-      x -= focus[0] * travel;
-      y -= lerp(this.extended ? .75 : .1, focus[1], travel);
+      y -= this.extended ? .75 : .1;
       const rx = cy * x + sy * z, rz = -sy * x + cy * z, ry = cp * y - sp * rz,
             depth = sp * y + cp * rz;
-      const k = scale * distance / Math.max(.028, eye - depth);
-      return [
-        w / 2 + (rx * cr - ry * sr) * k + this.panX * (1 - travel),
-        h / 2 + (rx * sr + ry * cr) * k + this.panY * (1 - travel), depth
-      ];
+      const k = scale * 50 / (eye - depth);
+      return [centreX + (rx * cr - ry * sr) * k, centreY + (rx * sr + ry * cr) * k, depth, k];
     };
+    const clock = reduced.matches ? .32 : now * .00014;
     if (building) {
       const box = [...corners(0, 0, -1, 1), ...corners(0, 0, 1, 1)].map(
           ([x, y, z]) => project([x * 9, y * 4.6, z]));
@@ -232,17 +278,39 @@ export class Lattice {
       const list = this.list();
       const boxes =
           list.map(e => {
-                let [x, y, z] = pose(e);
+                let [x, y] = pose(e);
+                const value = this.mapping.height(e), missing = value === null;
                 const [sx, sy, sz, delay] = this.startPoints.get(e.number);
                 const progress = smooth(clamp((intro - delay * .63) / .37, 0, 1)), k = 1 - progress;
                 x += sx * k;
                 y += sy * k;
-                const base = sz * k, s = .427 * (.07 + .93 * progress);
-                const points =
-                    [...corners(x, y, base, s), ...corners(x, y, base + z, s)].map(project);
-                return {e, points, alpha: progress, depth: project([x, y, base + z / 2])[2]};
+                const base = sz * k, tip = base + (value ?? 0), s = .417 * (.07 + .93 * progress);
+                const near = Math.max(base, tip), far = Math.min(base, tip);
+                const points = [...corners(x, y, far, s), ...corners(x, y, near, s)].map(project);
+                return {
+                  e,
+                  points,
+                  tip: project([x, y, tip]),
+                  anchor: project([x, y, base]),
+                  cell: corners(x, y, tip, s).map(project),
+                  alpha: progress,
+                  missing,
+                  depth: project([x, y, (base + tip) / 2])[2]
+                };
               })
               .sort((a, b) => a.depth - b.depth);
+      if (intro === 1) {
+        ctx.strokeStyle = 'rgba(153,191,184,' + (.20 * (1 - travel)) + ')';
+        ctx.lineWidth = .65;
+        const line = (a, b) => {
+          ctx.beginPath();
+          ctx.moveTo(...project(a).slice(0, 2));
+          ctx.lineTo(...project(b).slice(0, 2));
+          ctx.stroke();
+        };
+        for (let x = -9; x <= 9; x++) line([x, -4.45, 0], [x, 2.64, 0]);
+        for (let y = 0; y <= 7; y++) line([-9, y - 4.45, 0], [9, y - 4.45, 0]);
+      }
       if (intro === 1 && travel < .5) {
         ctx.fillStyle = '#a3afa9';
         ctx.font = Math.max(8, scale * .205) + 'px monospace';
@@ -260,27 +328,94 @@ export class Lattice {
         label('Ac–Lr', -8.15, 9 - 4.9 + .46);
         if (this.extended) label('PREDICTED', -5.9, 10 - 4.9 + .86);
       }
-      for (const box of boxes) this.drawBox(ctx, box, travel);
+      for (const box of boxes) {
+        if (this.view === 'blocks') {
+          this.drawBox(ctx, box, travel);
+          continue;
+        }
+        const {e, tip, anchor, missing, cell} = box;
+        if (!box.alpha) continue;
+        const dim = this.filter && this.filter !== e.category;
+        const selected = e.number === this.selected;
+        const color = this.effect === 'Astrophage' ? tintHeat(e.number) : families[e.category][1];
+        ctx.save();
+        ctx.globalAlpha = box.alpha * (missing ? .43 : dim ? .14 : 1) * (1 - .72 * travel);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = .75;
+        ctx.beginPath();
+        ctx.moveTo(anchor[0], anchor[1]);
+        ctx.lineTo(tip[0], tip[1]);
+        ctx.stroke();
+        const size = tip[3] * .35 * box.alpha;
+        drawAtom(ctx, e, {
+          x: tip[0],
+          y: tip[1] - .07 * tip[3],
+          size,
+          yaw,
+          pitch,
+          roll,
+          clock,
+          color,
+          wire: this.effect === 'Wireframe'
+        });
+        if (!dim && !travel) this.hits.push({poly: cell, element: e});
+        if (selected && !travel) {
+          path(ctx, cell);
+          ctx.strokeStyle = '#efffdc';
+          ctx.stroke();
+        }
+        if (travel < .7) {
+          ctx.textAlign = 'center';
+          ctx.font = 'bold ' + Math.max(6, tip[3] * .23) + 'px Arial';
+          ctx.fillStyle = '#eff5e8';
+          ctx.fillText(e.symbol, tip[0], tip[1] + tip[3] * .39);
+        }
+        ctx.restore();
+      }
+      if (travel > 0) {
+        const source = boxes.find(b => b.e.number === this.selected);
+        if (source) {
+          const {e, tip} = source;
+          const extent = Math.min(w * .34, h * .34);
+          ctx.save();
+          ctx.globalAlpha = smooth(travel);
+          drawAtom(ctx, e, {
+            x: lerp(tip[0], w * .53, travel),
+            y: lerp(tip[1], h * .45, travel),
+            size: lerp(tip[3] * .35, extent, travel),
+            yaw: this.atomYaw,
+            pitch: this.atomPitch,
+            clock,
+            color: families[e.category][1],
+            detailed: true
+          });
+          ctx.restore();
+        }
+      }
     }
-    if (flight && travel === 1) {
+    if (flight && t === 1) {
       this.flight = null;
-      flight.done();
       this.locked = false;
-      this.drawSoon();
-    } else if (intro < 1 || flight)
-      this.drawSoon();
-    else if (this.locked) {
+      this.canvas.setAttribute('aria-busy','false');
+      flight.done();
+    } else if (!flight && intro === 1 && this.locked) {
       this.locked = false;
       this.ready();
     }
+    if (intro < 1 || this.flight)
+      this.drawSoon();
+    else if ((this.detail || this.view === 'atoms') && !reduced.matches && !document.hidden) {
+      clearTimeout(this.tick);
+      this.tick = setTimeout(() => this.drawSoon(), this.detail ? 35 : 90);
+    }
   }
-  drawBox(ctx, {e, points, alpha}, travel) {
+  drawBox(ctx, {e, points, alpha, missing}, travel) {
     if (alpha <= .001) return;
     const selected = e.number === this.selected, dim = this.filter && this.filter !== e.category;
     const base = families[e.category][1], wire = this.effect === 'Wireframe',
           hot = this.effect === 'Astrophage';
-    const col = hot ? (selected ? '#ffde87' : tintHeat(e.number)) : base;
-    ctx.globalAlpha = dim ? .16 : alpha;
+    const col = missing ? '#8b9998' : hot ? (selected ? '#ffde87' : tintHeat(e.number)) : base;
+    ctx.globalAlpha = alpha * (1 - .72 * travel) * (dim ? .16 : missing ? .55 : 1);
     ctx.lineWidth = wire ? .9 : .8;
     const faces =
         boxFaces.map((ids, i) => ({i, p: ids.map(id => points[id])}))
@@ -299,7 +434,7 @@ export class Lattice {
       ctx.fill();
       ctx.strokeStyle = wire ? tint(col, .9) : tint(col, i === 5 ? 1 : .64);
       ctx.stroke();
-      if (!dim) this.hits.push({poly: p, element: e});
+      if (!dim && !travel) this.hits.push({poly: p, element: e});
       if (i !== 5) continue;
       if (selected || (!wire && !hot && !travel && alpha === 1)) {
         ctx.save();
@@ -323,10 +458,6 @@ export class Lattice {
       ctx.font = 'bold ' + (e.symbol.length === 3 ? 39 : 48) + 'px Arial';
       ctx.textAlign = 'center';
       ctx.fillText(e.symbol, 50, 77);
-      if (travel > .62 && selected) {
-        ctx.fillStyle = 'rgba(15,25,23,' + clamp((travel - .62) / .36, 0, 1) + ')';
-        ctx.fillRect(0, 0, 100, 100);
-      }
       ctx.restore();
     }
     ctx.globalAlpha = 1;
