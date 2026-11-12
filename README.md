@@ -10,6 +10,8 @@ Switch between 3D element blocks and animated Bohr models in the same 18-group l
 
 Choose a height property and display it above the zero plane, below it, or relative to its median. The property choices include calculated atomic radius, atomic number, atomic weight, occupied shells, melting and boiling points, and liquid temperature range. Unavailable values remain selectable at the baseline.
 
+Use **Display** to toggle path and grid lines, grid labels, and element names independently. Astrophage traces the box borders with a moving ember.
+
 Drag to orbit, Shift-drag to pan, and use the wheel or the zoom buttons to change scale. Search with **/** or navigate with the arrow keys. In detail view, drag or use the arrow keys to rotate the model. **Escape** restores the prior table view. The optional theoretical row adds elements 119 and 120.
 
 [Illustrated guide, height formulas and references](docs/README.md) · [Element records and attribution](docs/data.md)

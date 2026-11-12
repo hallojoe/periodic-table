@@ -29,7 +29,12 @@
 <label for="metric">Height property</label><select id="metric"></select>
 <label for="direction">Height direction</label><select id="direction"><option value="up">Positive ↑</option><option value="down">Negative ↓</option><option value="median">Above / below median ±</option></select>
 <div class="scale"><div class="scale-line"></div><div id="range"></div><small id="baseline"></small></div>
-<label for="effect">Surface effect</label><select id="effect"><option>Neon</option><option>Astrophage</option><option>Wireframe</option></select>
+<label for="effect">Render effect</label><select id="effect"><option>Neon</option><option>Astrophage</option><option>Wireframe</option></select>
+<fieldset class="overlays"><legend>Scene overlays</legend>
+<label class="switch"><input type="checkbox" id="showPaths" checked><span></span>Path and grid lines</label>
+<label class="switch"><input type="checkbox" id="showGridLabels" checked><span></span>Grid labels</label>
+<label class="switch"><input type="checkbox" id="showNames" checked><span></span>Element names</label>
+</fieldset>
 <label class="switch"><input type="checkbox" id="extended"><span></span>Show theoretical</label>
 </section>
 <section id="inspect" aria-live="polite"></section>

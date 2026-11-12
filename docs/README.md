@@ -4,9 +4,21 @@
 
 ## Two views in one scene
 
-**Blocks** extrudes columns from the zero plane. **Bohr models** places each atom at the height of its column endpoint, with a stem connecting it to the plane. Both representations preserve the conventional table positions, the detached series, the active height method, selection and camera. The colour identifies the chemical family in Neon and Wireframe. Astrophage uses a warm gradient by atomic number.
+**Blocks** extrudes columns from the zero plane. **Bohr models** places each atom at the height of its column endpoint, with a stem connecting it to the plane. Both representations preserve the conventional table positions, the detached series, the active height method, selection and camera. Box faces retain their chemical-family colours in Astrophage mode. A bright ember travels around the visible box edges. Reduced-motion mode holds the ember still.
 
 ![Bohr models in the table with radius heights centered on the median](https://hallojoe.github.io/periodic-table/screenshots/bohr-table.png)
+
+## Scene overlays
+
+The table assembles from the Fibonacci sphere as soon as it opens. Three independent switches in **Display** control the drawing in both views.
+
+| Switch | Visible when enabled |
+| --- | --- |
+| Path and grid lines | The table grid, dotted backdrop, atom height stems and Bohr orbital paths |
+| Grid labels | Group and period numbers, detached-row guides and the theoretical-row label |
+| Element names | Chemical symbols at overview scale and full names when zoomed in |
+
+Elements remain selectable with any combination of overlays. The record always identifies the selected element.
 
 ## Height calculations
 

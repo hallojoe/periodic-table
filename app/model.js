@@ -26,7 +26,7 @@ function particle(ctx, x, y, r, color, highlight, detailed) {
   ctx.fill();
 }
 export function drawAtom(
-    ctx, e, {x, y, size, yaw, pitch, clock, color, detailed = false, wire = false, roll = 0}) {
+    ctx, e, {x, y, size, yaw, pitch, clock, color, detailed = false, wire = false, roll = 0, showPaths = true}) {
   if (size < .3) return;
   const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
   function rotate([x, y, z]) {
@@ -41,17 +41,19 @@ export function drawAtom(
   e.shells.forEach((count, i) => {
     const r = size * (.29 + .71 * (i + 1) / e.shells.length);
     const [u, v] = orbitAxes(i).map(rotate);
-    // Project the circular shell via its 2D basis. Draw it in screen units for uniform line width.
-    ctx.beginPath();
-    ctx.save();
-    ctx.transform(r * u[0], r * u[1], r * v[0], r * v[1], 0, 0);
-    ctx.arc(0, 0, 1, 0, tau);
-    ctx.restore();
-    ctx.globalAlpha = ringAlpha * (detailed ? .68 : .76);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = detailed ? 1.2 : .65;
-    ctx.stroke();
-    ctx.globalAlpha = ringAlpha;
+    if (showPaths) {
+      // Project the circular shell via its 2D basis. Draw it in screen units for uniform line width.
+      ctx.beginPath();
+      ctx.save();
+      ctx.transform(r * u[0], r * u[1], r * v[0], r * v[1], 0, 0);
+      ctx.arc(0, 0, 1, 0, tau);
+      ctx.restore();
+      ctx.globalAlpha = ringAlpha * (detailed ? .68 : .76);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = detailed ? 1.2 : .65;
+      ctx.stroke();
+      ctx.globalAlpha = ringAlpha;
+    }
     for (let j = 0; j < count; j++) {
       const angle = tau * j / count + clock * (1 - .055 * i) + i * 1.53 + .9, c = Math.cos(angle),
             s = Math.sin(angle);
@@ -99,6 +101,7 @@ export function drawAtom(
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(0, 0, Math.max(.7, size * .18), 0, tau);
+    ctx.strokeStyle = color;
     wire ? ctx.stroke() : ctx.fill();
   }
   electrons(front);

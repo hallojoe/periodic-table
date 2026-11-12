@@ -43,6 +43,19 @@ with webdriver.Chrome(options=options) as browser:
         el("leave").click()
         wait.until(lambda _: not el("leave").is_displayed())
 
+    def toggle_overlay(option):
+        browser.find_element(By.CSS_SELECTOR, f'label:has(#{option})').click()
+
+    def check_overlays():
+        for option in ["showPaths", "showGridLabels", "showNames"]:
+            assert el(option).is_selected()
+            before = el("lattice").screenshot_as_png
+            toggle_overlay(option)
+            assert not el(option).is_selected()
+            wait.until(lambda _: before != el("lattice").screenshot_as_png)
+            toggle_overlay(option)
+            wait.until(lambda _: before == el("lattice").screenshot_as_png)
+
     def click_cell(col, row, height=0):
         # Front elevation of the normal table, including perspective.
         rect = el("lattice").rect
@@ -55,6 +68,8 @@ with webdriver.Chrome(options=options) as browser:
     browser.get(url)
     ready()
     assert el("count").text == "118 ELEMENTS"
+    check_overlays()
+    sidebar_width = el("settings").rect["width"]
     choose("C")
     assert el("inspect").find_element(By.TAG_NAME, "h3").text == "Carbon"
     assert not el("leave").is_displayed()
@@ -63,14 +78,24 @@ with webdriver.Chrome(options=options) as browser:
     Select(el("metric")).select_by_value("boil")
     click_cell(1, 1)
     assert "Hydrogen" in el("inspect").text and not el("leave").is_displayed()
-    # Carbon has no boiling point in the source. Its dim, flat cell still takes both clicks.
+    for option in ["showPaths", "showGridLabels", "showNames"]:
+        toggle_overlay(option)
+    # Carbon still takes both clicks with no overlays and no boiling point.
     click_cell(14, 2)
     assert "Carbon" in el("inspect").text and "Unavailable" in el("inspect").text
     assert not el("leave").is_displayed()
     click_cell(14, 2)
     detail_open()
+    assert el("inspect").rect["width"] > sidebar_width * 1.3
     leave()
-    for effect in ["Wireframe", "Astrophage", "Neon"]:
+    for option in ["showPaths", "showGridLabels", "showNames"]:
+        assert not el(option).is_selected()
+        toggle_overlay(option)
+    Select(el("effect")).select_by_visible_text("Astrophage")
+    # A stationary block table redraws as the border tracer moves.
+    before = el("lattice").screenshot_as_png
+    wait.until(lambda _: before != el("lattice").screenshot_as_png)
+    for effect in ["Wireframe", "Neon"]:
         Select(el("effect")).select_by_visible_text(effect)
     el("atoms").click()
     assert el("atoms").get_attribute("aria-pressed") == "true"
@@ -88,6 +113,7 @@ with webdriver.Chrome(options=options) as browser:
     browser.save_screenshot(str(output / "beryllium.png"))
     el("lattice").send_keys(Keys.ESCAPE)
     wait.until(lambda _: not el("leave").is_displayed())
+    check_overlays()
     Select(el("direction")).select_by_value("down")
     Select(el("metric")).select_by_value("radius")
     assert "112 pm" in el("inspect").text

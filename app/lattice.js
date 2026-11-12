@@ -73,6 +73,9 @@ export class Lattice {
       atomYaw: 0,
       atomPitch: 0,
       effect: 'Neon',
+      showPaths: true,
+      showGridLabels: true,
+      showNames: true,
       filter: null,
       extended: false,
       flat: false,
@@ -233,8 +236,7 @@ export class Lattice {
     const {ctx, width: w, height: h} = frame;
     ctx.clearRect(0, 0, w, h);
     this.hits = [];
-    const time = reduced.matches ? 9000 : now - this.start, building = time < 610;
-    const intro = clamp((time - 540) / 1650, 0, 1);
+    const intro = reduced.matches ? 1 : clamp((now - this.start) / 1650, 0, 1);
     const flight = this.flight;
     const t = flight ? (reduced.matches ? 1 : clamp((now - flight.start) / 850, 0, 1)) : 1;
     if (flight) this.detail = lerp(flight.from, flight.to, smooth(t));
@@ -255,142 +257,127 @@ export class Lattice {
       return [centreX + (rx * cr - ry * sr) * k, centreY + (rx * sr + ry * cr) * k, depth, k];
     };
     const clock = reduced.matches ? .32 : now * .00014;
-    if (building) {
-      const box = [...corners(0, 0, -1, 1), ...corners(0, 0, 1, 1)].map(
-          ([x, y, z]) => project([x * 9, y * 4.6, z]));
-      const edges = [
-        [0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6],
-        [3, 7]
-      ];
-      ctx.strokeStyle = '#c1eb97';
-      ctx.lineWidth = 1;
-      ctx.globalAlpha = Math.min(1, (610 - time) / 110);
-      edges.forEach(([a, b], i) => {
-        const t = clamp(time / 410 * 12 - i, 0, 1);
+    const list = this.list();
+    const boxes =
+        list.map(e => {
+              let [x, y] = pose(e);
+              const value = this.mapping.height(e), missing = value === null;
+              const [sx, sy, sz, delay] = this.startPoints.get(e.number);
+              const progress = smooth(clamp((intro - delay * .63) / .37, 0, 1)), k = 1 - progress;
+              x += sx * k;
+              y += sy * k;
+              const base = sz * k, tip = base + (value ?? 0), s = .417 * (.07 + .93 * progress);
+              const near = Math.max(base, tip), far = Math.min(base, tip);
+              const points = [...corners(x, y, far, s), ...corners(x, y, near, s)].map(project);
+              return {
+                e,
+                points,
+                tip: project([x, y, tip]),
+                anchor: project([x, y, base]),
+                cell: corners(x, y, tip, s).map(project),
+                alpha: progress,
+                missing,
+                depth: project([x, y, (base + tip) / 2])[2]
+              };
+            })
+            .sort((a, b) => a.depth - b.depth);
+    if (intro === 1 && this.showPaths) {
+      ctx.strokeStyle = 'rgba(153,191,184,' + (.20 * (1 - travel)) + ')';
+      ctx.lineWidth = .65;
+      const line = (a, b) => {
         ctx.beginPath();
-        ctx.moveTo(...box[a].slice(0, 2));
-        ctx.lineTo(lerp(box[a][0], box[b][0], t), lerp(box[a][1], box[b][1], t));
+        ctx.moveTo(...project(a).slice(0, 2));
+        ctx.lineTo(...project(b).slice(0, 2));
         ctx.stroke();
-      });
-      ctx.globalAlpha = 1;
+      };
+      for (let x = -9; x <= 9; x++) line([x, -4.45, 0], [x, 2.64, 0]);
+      for (let y = 0; y <= 7; y++) line([-9, y - 4.45, 0], [9, y - 4.45, 0]);
     }
-    if (!building || time > 540) {
-      const list = this.list();
-      const boxes =
-          list.map(e => {
-                let [x, y] = pose(e);
-                const value = this.mapping.height(e), missing = value === null;
-                const [sx, sy, sz, delay] = this.startPoints.get(e.number);
-                const progress = smooth(clamp((intro - delay * .63) / .37, 0, 1)), k = 1 - progress;
-                x += sx * k;
-                y += sy * k;
-                const base = sz * k, tip = base + (value ?? 0), s = .417 * (.07 + .93 * progress);
-                const near = Math.max(base, tip), far = Math.min(base, tip);
-                const points = [...corners(x, y, far, s), ...corners(x, y, near, s)].map(project);
-                return {
-                  e,
-                  points,
-                  tip: project([x, y, tip]),
-                  anchor: project([x, y, base]),
-                  cell: corners(x, y, tip, s).map(project),
-                  alpha: progress,
-                  missing,
-                  depth: project([x, y, (base + tip) / 2])[2]
-                };
-              })
-              .sort((a, b) => a.depth - b.depth);
-      if (intro === 1) {
-        ctx.strokeStyle = 'rgba(153,191,184,' + (.20 * (1 - travel)) + ')';
-        ctx.lineWidth = .65;
-        const line = (a, b) => {
-          ctx.beginPath();
-          ctx.moveTo(...project(a).slice(0, 2));
-          ctx.lineTo(...project(b).slice(0, 2));
-          ctx.stroke();
-        };
-        for (let x = -9; x <= 9; x++) line([x, -4.45, 0], [x, 2.64, 0]);
-        for (let y = 0; y <= 7; y++) line([-9, y - 4.45, 0], [9, y - 4.45, 0]);
+    if (intro === 1 && this.showGridLabels && travel < .5) {
+      ctx.fillStyle = '#a3afa9';
+      ctx.font = Math.max(8, scale * .205) + 'px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const label = (txt, x, y) => {
+        const p = project([x, y, 0]);
+        ctx.fillText(txt, p[0], p[1]);
+      };
+      for (let col = 1; col <= 18; col++) label(col, col - 9.5, -4.72);
+      for (let row = 1; row <= 7; row++) label(row, -9.39, row - 4.9);
+      label('57–71', 3 - 9.5, 6 - 4.9);
+      label('89–103', 3 - 9.5, 7 - 4.9);
+      label('La–Lu', -8.15, 8 - 4.9 + .46);
+      label('Ac–Lr', -8.15, 9 - 4.9 + .46);
+      if (this.extended) label('PREDICTED', -5.9, 10 - 4.9 + .86);
+    }
+    for (const box of boxes) {
+      if (this.view === 'blocks') {
+        this.drawBox(ctx, box, travel, reduced.matches ? 0 : now / 2800);
+        continue;
       }
-      if (intro === 1 && travel < .5) {
-        ctx.fillStyle = '#a3afa9';
-        ctx.font = Math.max(8, scale * .205) + 'px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const label = (txt, x, y) => {
-          const p = project([x, y, 0]);
-          ctx.fillText(txt, p[0], p[1]);
-        };
-        for (let col = 1; col <= 18; col++) label(col, col - 9.5, -4.72);
-        for (let row = 1; row <= 7; row++) label(row, -9.39, row - 4.9);
-        label('57–71', 3 - 9.5, 6 - 4.9);
-        label('89–103', 3 - 9.5, 7 - 4.9);
-        label('La–Lu', -8.15, 8 - 4.9 + .46);
-        label('Ac–Lr', -8.15, 9 - 4.9 + .46);
-        if (this.extended) label('PREDICTED', -5.9, 10 - 4.9 + .86);
-      }
-      for (const box of boxes) {
-        if (this.view === 'blocks') {
-          this.drawBox(ctx, box, travel);
-          continue;
-        }
-        const {e, tip, anchor, missing, cell} = box;
-        if (!box.alpha) continue;
-        const dim = this.filter && this.filter !== e.category;
-        const selected = e.number === this.selected;
-        const color = this.effect === 'Astrophage' ? tintHeat(e.number) : families[e.category][1];
-        ctx.save();
-        ctx.globalAlpha = box.alpha * (missing ? .43 : dim ? .14 : 1) * (1 - .72 * travel);
+      const {e, tip, anchor, missing, cell} = box;
+      if (!box.alpha) continue;
+      const dim = this.filter && this.filter !== e.category;
+      const selected = e.number === this.selected;
+      const color = families[e.category][1];
+      ctx.save();
+      ctx.globalAlpha = box.alpha * (missing ? .43 : dim ? .14 : 1) * (1 - .72 * travel);
+      if (this.showPaths) {
         ctx.strokeStyle = color;
         ctx.lineWidth = .75;
         ctx.beginPath();
         ctx.moveTo(anchor[0], anchor[1]);
         ctx.lineTo(tip[0], tip[1]);
         ctx.stroke();
-        const size = tip[3] * .35 * box.alpha;
-        drawAtom(ctx, e, {
-          x: tip[0],
-          y: tip[1] - .07 * tip[3],
-          size,
-          yaw,
-          pitch,
-          roll,
-          clock,
-          color,
-          wire: this.effect === 'Wireframe'
-        });
-        if (!dim && !travel) this.hits.push({poly: cell, element: e});
-        if (selected && !travel) {
-          path(ctx, cell);
-          ctx.strokeStyle = '#efffdc';
-          ctx.stroke();
-        }
-        if (travel < .7) {
-          ctx.textAlign = 'center';
-          ctx.font = 'bold ' + Math.max(6, tip[3] * .23) + 'px Arial';
-          ctx.fillStyle = '#eff5e8';
-          ctx.fillText(e.symbol, tip[0], tip[1] + tip[3] * .39);
-        }
-        ctx.restore();
       }
-      if (travel > 0) {
-        const source = boxes.find(b => b.e.number === this.selected);
-        if (source) {
-          const {e, tip} = source;
-          const extent = Math.min(w * .34, h * .34);
-          ctx.save();
-          ctx.globalAlpha = smooth(travel);
-          drawAtom(ctx, e, {
-            x: lerp(tip[0], w * .53, travel),
-            y: lerp(tip[1], h * .45, travel),
-            size: lerp(tip[3] * .35, extent, travel),
-            yaw: this.atomYaw,
-            pitch: this.atomPitch,
-            clock,
-            color: families[e.category][1],
-            detailed: true
-          });
-          ctx.restore();
-        }
+      const size = tip[3] * .35 * box.alpha;
+      drawAtom(ctx, e, {
+        x: tip[0],
+        y: tip[1] - .07 * tip[3],
+        size,
+        yaw,
+        pitch,
+        roll,
+        clock,
+        color,
+        showPaths: this.showPaths,
+        wire: this.effect === 'Wireframe'
+      });
+      if (!dim && !travel) this.hits.push({poly: cell, element: e});
+      if (selected && !travel) {
+        path(ctx, cell);
+        ctx.strokeStyle = '#efffdc';
+        ctx.stroke();
+      }
+      if (this.showNames && travel < .7) {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#eff5e8';
+        const showFull = tip[3] >= 58;
+        const fontSize = showFull ? Math.min(14, tip[3] * .15) : Math.max(6, tip[3] * .23);
+        ctx.font = 'bold ' + fontSize + 'px Arial';
+        ctx.fillText(showFull ? e.name : e.symbol, tip[0], tip[1] + tip[3] * .39, tip[3] * .94);
+      }
+      ctx.restore();
+    }
+    if (travel > 0) {
+      const source = boxes.find(b => b.e.number === this.selected);
+      if (source) {
+        const {e, tip} = source;
+        const extent = Math.min(w * .34, h * .34);
+        ctx.save();
+        ctx.globalAlpha = smooth(travel);
+        drawAtom(ctx, e, {
+          x: lerp(tip[0], w * .53, travel),
+          y: lerp(tip[1], h * .45, travel),
+          size: lerp(tip[3] * .35, extent, travel),
+          yaw: this.atomYaw,
+          pitch: this.atomPitch,
+          clock,
+          color: families[e.category][1],
+          showPaths: this.showPaths,
+          detailed: true
+        });
+        ctx.restore();
       }
     }
     if (flight && t === 1) {
@@ -404,17 +391,17 @@ export class Lattice {
     }
     if (intro < 1 || this.flight)
       this.drawSoon();
-    else if ((this.detail || this.view === 'atoms') && !reduced.matches && !document.hidden) {
+    else if ((this.detail || this.view === 'atoms' || this.effect === 'Astrophage') && !reduced.matches && !document.hidden) {
       clearTimeout(this.tick);
-      this.tick = setTimeout(() => this.drawSoon(), this.detail ? 35 : 90);
+      this.tick = setTimeout(() => this.drawSoon(), this.detail || this.effect === 'Astrophage' ? 35 : 90);
     }
   }
-  drawBox(ctx, {e, points, alpha, missing}, travel) {
+  drawBox(ctx, {e, points, alpha, missing}, travel, cycles) {
     if (alpha <= .001) return;
     const selected = e.number === this.selected, dim = this.filter && this.filter !== e.category;
     const base = families[e.category][1], wire = this.effect === 'Wireframe',
           hot = this.effect === 'Astrophage';
-    const col = missing ? '#8b9998' : hot ? (selected ? '#ffde87' : tintHeat(e.number)) : base;
+    const col = missing ? '#8b9998' : base;
     ctx.globalAlpha = alpha * (1 - .72 * travel) * (dim ? .16 : missing ? .55 : 1);
     ctx.lineWidth = wire ? .9 : .8;
     const faces =
@@ -428,12 +415,15 @@ export class Lattice {
       if (i === 5 && !wire && !travel) {
         const enamel = ctx.createLinearGradient(a[0], a[1], c[0], c[1]);
         enamel.addColorStop(0, tint(col, 1, 10));
-        enamel.addColorStop(1, tint(col, hot ? .64 : .78));
+        enamel.addColorStop(1, tint(col, .78));
         ctx.fillStyle = enamel;
       }
       ctx.fill();
       ctx.strokeStyle = wire ? tint(col, .9) : tint(col, i === 5 ? 1 : .64);
       ctx.stroke();
+      if (hot && travel < .8) {
+        traceBorder(ctx, p, (cycles + e.number * .618 + i * .13) % 1);
+      }
       if (!dim && !travel) this.hits.push({poly: p, element: e});
       if (i !== 5) continue;
       if (selected || (!wire && !hot && !travel && alpha === 1)) {
@@ -455,16 +445,42 @@ export class Lattice {
       ctx.textAlign = 'left';
       ctx.font = '500 20px monospace';
       ctx.fillText(String(e.number), 8, 24);
-      ctx.font = 'bold ' + (e.symbol.length === 3 ? 39 : 48) + 'px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(e.symbol, 50, 77);
+      if (this.showNames) {
+        const faceWidth = Math.hypot(tr[0] - tl[0], tr[1] - tl[1]);
+        const faceHeight = Math.hypot(bl[0] - tl[0], bl[1] - tl[1]);
+        ctx.font = '16px Arial';
+        const full = Math.min(faceWidth, faceHeight) >= 56;
+        ctx.textAlign = 'center';
+        if (full) ctx.fillText(e.name, 50, 94, 94);
+        ctx.font = 'bold ' + (e.symbol.length === 3 ? 39 : 48) + 'px Arial';
+        ctx.fillText(e.symbol, 50, full ? 69 : 77);
+      }
       ctx.restore();
     }
     ctx.globalAlpha = 1;
   }
 }
-function tintHeat(number) {
-  const t = number / 120;
-  return '#' +
-      [235 + 18 * t, 190 - 90 * t, 125 - 57 * t].map(x => Math.round(x).toString(16)).join('');
+// The current canvas path is a visible projected face. Its perimeter sets the
+// dash period so the ember completes one circuit at every camera angle and zoom.
+function traceBorder(ctx, points, phase) {
+  let perimeter = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i], b = points[(i + 1) % points.length];
+    perimeter += Math.hypot(b[0] - a[0], b[1] - a[1]);
+  }
+  if (perimeter < 2) return;
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#ff713b';
+  ctx.lineWidth = 1.45;
+  ctx.setLineDash([perimeter * .24, perimeter * .76]);
+  ctx.lineDashOffset = -phase * perimeter;
+  ctx.stroke();
+  ctx.strokeStyle = '#fff6cc';
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([perimeter * .055, perimeter * .945]);
+  ctx.lineDashOffset -= perimeter * .185;
+  ctx.stroke();
+  ctx.restore();
 }

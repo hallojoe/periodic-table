@@ -196,6 +196,15 @@ function setExtended() {
   table.drawSoon();
 }
 $('extended').onchange = setExtended;
+for (const option of ['showPaths', 'showGridLabels', 'showNames']) {
+  const control = $(option);
+  const update = () => {
+    table[option] = control.checked;
+    table.drawSoon();
+  };
+  control.onchange = update;
+  update();
+}
 $('effect').onchange = e => {
   table.effect = e.target.value;
   table.drawSoon();
