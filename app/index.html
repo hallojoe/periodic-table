@@ -31,6 +31,7 @@
 <div class="scale"><div class="scale-line"></div><div id="range"></div><small id="baseline"></small></div>
 <label for="theme">Color theme</label><select id="theme"></select>
 <fieldset class="overlays"><legend>Rendering</legend>
+<label class="switch"><input type="checkbox" id="fill" checked><span></span>Fill</label>
 <label class="switch"><input type="checkbox" id="wireframe"><span></span>Wireframe</label>
 <label class="switch"><input type="checkbox" id="astrophage"><span></span>Astrophage borders</label>
 <label class="switch"><input type="checkbox" id="blinkingDots"><span></span>Blinking dots</label>
@@ -47,7 +48,7 @@
 <section class="legend" id="legend"><div class="legend-heading"><h2><i data-i="swatches"></i>Chemical families</h2><button id="clear" hidden>Clear filter ×</button></div><div id="families"></div></section>
 </div></main>
 <dialog id="help"><button id="close-help" aria-label="Close field guide">×</button><h2>Field guide</h2>
-<p>Choose Blocks or Bohr models to see the same groups and periods. Drag to orbit, Shift-drag to pan, and use + or − to zoom.</p>
+<p>Choose Blocks or Bohr models to see the same groups and periods. Drag horizontally or vertically for a full turn, Shift-drag to pan, and use + or − to zoom.</p>
 <h3>Read the height</h3><p>Positive and negative place values on opposite sides of the grid. Above / below median places the middle value at zero. Atomic number uses a square-root scale. Other properties use a linear scale. A dim element on the grid has no applicable value and can still be selected.</p>
 <h3>Inspect an atom</h3><p>Click once to select, then click the same element again to dissolve the table along its Fibonacci paths and open its record. Search with /, or use arrows on the table and Enter. In detail view, drag or use the arrow keys to rotate the atom. Escape returns to the table.</p>
 <p>Shell populations come from the element records. Paths, distances and nucleus geometry are schematic. The optional period-eight entries are theoretical.</p>

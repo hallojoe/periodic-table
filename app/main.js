@@ -198,7 +198,7 @@ function setExtended() {
   table.drawSoon();
 }
 $('extended').onchange = setExtended;
-for (const option of ['wireframe', 'astrophage', 'blinkingDots', 'showPaths', 'showGridLabels', 'showNames']) {
+for (const option of ['fill', 'wireframe', 'astrophage', 'blinkingDots', 'showPaths', 'showGridLabels', 'showNames']) {
   const control = $(option);
   const update = () => {
     table[option] = control.checked;

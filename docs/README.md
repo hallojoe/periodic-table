@@ -10,15 +10,18 @@
 
 ## Color and rendering
 
-Choose **Neon**, **Aurora**, **Ocean** or **Ember**. The three rendering switches work independently across all four themes.
+Choose **Neon**, **Aurora**, **Ocean** or **Ember**. Fill, wireframe and the two animated effects work independently in every theme. Turn off both geometry switches to isolate the labels and effects. Picking keeps working on transparent elements.
 
 | Switch | Blocks | Bohr models |
 | --- | --- | --- |
-| Wireframe | Outlined faces and themed symbols | Outlined nucleus and particles in detail |
-| Astrophage borders | A moving ember on visible edges | An ember on the outermost visible shell path |
+| Fill | Solid family-coloured faces | Filled electrons and nucleus |
+| Wireframe | Box edges, including rear edges when fill is off | Particle outlines |
+| Astrophage borders | Dark cells circulate along the box edges, brighten and divide | Cells follow the outer visible shell |
 | Blinking dots | Independently pulsing lights at visible corners | A pulsing nucleus in the table and glowing electrons in detail |
 
-Reduced motion freezes the border and dot phases. The dots use soft additive light and staggered phases inspired by [Hilbert Space](https://github.com/hallojoe/hilbert-space).
+The Astrophage animation interprets the fictional microbe’s feeding and division cycle. Its rose-coloured wake stands in for the infrared Petrova line. [A Field Guide to Astrophage](https://www.thescienceof.org/p/a-field-guide-to-astrophage)
+
+Drag horizontally or vertically through any number of full turns. Rear, side and underside faces can be picked and carry the element inscription. Reduced motion freezes the border and dot phases. The dots use soft additive light and staggered phases inspired by [Hilbert Space](https://github.com/hallojoe/hilbert-space).
 
 ![Aurora wireframe blocks with Astrophage borders and blinking dots](https://hallojoe.github.io/periodic-table/screenshots/appearance.png)
 

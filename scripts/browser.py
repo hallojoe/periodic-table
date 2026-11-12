@@ -67,6 +67,52 @@ with webdriver.Chrome(options=options) as browser:
             }));
         """)
 
+    def check_full_orbit(dx, dy):
+        # Compare actual canvas pixels after one full revolution, allowing
+        # subpixel differences from trigonometry and antialiasing.
+        js("""
+            const c = document.getElementById('lattice');
+            window.orbitStart = c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+        """)
+        before = canvas_digest()
+        for step in range(6):
+            ActionChains(browser, duration=60).move_to_element(el("lattice")).click_and_hold().move_by_offset(dx, dy).release().perform()
+            if step == 2:
+                assert canvas_digest() != before, "Half turn must expose another side"
+        canvas_digest()
+        assert js("""
+            const c = document.getElementById('lattice');
+            const end = c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+            let changed = 0;
+            for(let i=0;i<end.length;i++) if(Math.abs(end[i]-window.orbitStart[i])>8) changed++;
+            return changed/end.length < 0.01;
+        """), "A full orbit must return to the initial projection"
+
+    def check_fill_and_wire():
+        # In front elevation sample an unlabelled patch inside H's cap. Canvas
+        # alpha distinguishes a truly transparent face from a dark painted one.
+        toggle_overlay("showPaths")
+        images = set()
+        for fill, wire in [(True,False), (True,True), (False,True), (False,False)]:
+            for option, value in [("fill",fill), ("wireframe",wire)]:
+                if el(option).is_selected() != value:
+                    toggle_overlay(option)
+            images.add(canvas_digest())
+            alpha = js("""
+                const c = document.getElementById('lattice');
+                const scale = Math.min((c.clientWidth-30)/19.6,(c.clientHeight-74)/11.1);
+                const k = scale*50/(50-2.05/Math.sqrt(120));
+                const x = (c.clientWidth/2-8.8*k)*c.width/c.clientWidth;
+                const y = (c.clientHeight/2-3.69*k)*c.height/c.clientHeight;
+                return c.getContext('2d').getImageData(x,y,1,1).data[3];
+            """)
+            assert (alpha > 200 if fill else alpha == 0), (fill, wire, alpha)
+        assert len(images) == 4
+        click_cell(1, 1)
+        assert "Hydrogen" in el("inspect").text
+        toggle_overlay("fill")
+        toggle_overlay("showPaths")
+
     def check_overlays():
         for option in ["showPaths", "showGridLabels", "showNames"]:
             assert el(option).is_selected()
@@ -90,6 +136,8 @@ with webdriver.Chrome(options=options) as browser:
     browser.get(url)
     ready()
     assert el("count").text == "118 ELEMENTS"
+    check_full_orbit(150, 0)
+    check_full_orbit(0, 150)
     check_overlays()
     sidebar = browser.find_element(By.CSS_SELECTOR, ".inspector")
     sidebar_width = sidebar.rect["width"]
@@ -100,6 +148,8 @@ with webdriver.Chrome(options=options) as browser:
     assert not el("leave").is_displayed()
     browser.save_screenshot(str(output / "lattice.png"))
     el("flat").click()
+    check_fill_and_wire()
+    choose("C")
     Select(el("metric")).select_by_value("boil")
     click_cell(1, 1)
     assert "Hydrogen" in el("inspect").text and not el("leave").is_displayed()

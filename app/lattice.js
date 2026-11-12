@@ -1,4 +1,4 @@
-import {drawBlinkingDot, palettes, strokeEmber} from './appearance.js';
+import {drawAstrophage, drawBlinkingDot, palettes} from './appearance.js';
 import {heightMapping} from './heights.js';
 import {drawAtom} from './model.js';
 
@@ -7,6 +7,7 @@ export const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = t => t * t * (3 - 2 * t);
+const orbitSensitivity = Math.PI / 450;
 export function tint(hex, mult, add = 0) {
   const values =
       [1, 3, 5].map(i => clamp(Math.round(parseInt(hex.slice(i, i + 2), 16) * mult + add), 0, 255));
@@ -60,6 +61,7 @@ export class Lattice {
       atomYaw: 0,
       atomPitch: 0,
       colors: palettes.Neon,
+      fill: true,
       wireframe: false,
       astrophage: false,
       blinkingDots: false,
@@ -118,8 +120,8 @@ export class Lattice {
         this.panX += dx;
         this.panY += dy;
       } else {
-        this.yaw = clamp(this.yaw + dx * .007, -1.1, 1.1);
-        this.pitch = clamp(this.pitch - dy * .007, -1.08, 1.08);
+        this.yaw = (this.yaw + dx * orbitSensitivity) % (Math.PI * 2);
+        this.pitch = (this.pitch - dy * orbitSensitivity) % (Math.PI * 2);
       }
       this.drawSoon();
     });
@@ -266,7 +268,6 @@ export class Lattice {
                 points,
                 tip: project([x, y, tip]),
                 anchor: project([x, y, base]),
-                cell: corners(x, y, tip, s).map(project),
                 alpha: progress,
                 missing,
                 depth: project([x, y, (base + tip) / 2])[2]
@@ -307,7 +308,7 @@ export class Lattice {
         this.drawBox(ctx, box, travel, seconds);
         continue;
       }
-      const {e, tip, anchor, missing, cell} = box;
+      const {e, tip, anchor, missing} = box;
       if (!box.alpha) continue;
       const dim = this.filter && this.filter !== e.category;
       const selected = e.number === this.selected;
@@ -333,11 +334,13 @@ export class Lattice {
         clock,
         color,
         showPaths: this.showPaths,
+        fill: this.fill,
         wire: this.wireframe,
         astrophage: this.astrophage,
         blinkingDots: this.blinkingDots,
         seconds
       });
+      const cell = corners(tip[0], tip[1] - .035 * tip[3], 0, size * 1.25);
       if (!dim && !travel) this.hits.push({poly: cell, element: e});
       if (selected && !travel) {
         path(ctx, cell);
@@ -369,6 +372,7 @@ export class Lattice {
         clock, seconds,
         color: this.colors[e.category],
         showPaths: this.showPaths,
+        fill: this.fill,
         wire: this.wireframe,
         astrophage: this.astrophage,
         blinkingDots: this.blinkingDots,
@@ -399,60 +403,61 @@ export class Lattice {
     const col = missing ? '#8b9998' : this.colors[e.category];
     const visibleCorners = this.blinkingDots ? new Set() : null;
     ctx.globalAlpha = alpha * (dim ? .16 : missing ? .55 : 1);
-    ctx.lineWidth = wire ? .9 : .8;
-    const faces =
-        boxFaces.map((ids, i) => ({i, p: ids.map(id => points[id])}))
-            .sort((a, b) => a.p.reduce((s, p) => s + p[2], 0) - b.p.reduce((s, p) => s + p[2], 0));
-    for (const {i, p} of faces) {
+    const faces = boxFaces.map((ids, i) => {
+      const p = ids.map(id => points[id]);
       const [a, b, c] = p;
-      if ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) <= 0) continue;
+      const area = (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]);
+      return {i, p, area, depth:p.reduce((sum, point) => sum + point[2], 0)};
+    }).sort((a, b) => a.depth - b.depth);
+    let labelFace = null, labelInk = col, bestScore = 0;
+    for (const {i, p, area} of faces) {
+      const facing = area > .00001;
+      if (!facing && (this.fill || !wire)) continue;
       path(ctx, p);
-      ctx.fillStyle = wire ? '#1b2728' : tint(col, [.18, .30, .31, .56, .30, .84][i]);
-      if (i === 5 && !wire && !travel) {
-        const enamel = ctx.createLinearGradient(a[0], a[1], c[0], c[1]);
-        enamel.addColorStop(0, tint(col, 1, 10));
-        enamel.addColorStop(1, tint(col, .78));
-        ctx.fillStyle = enamel;
+      if (this.fill) {
+        ctx.fillStyle = tint(col, [.72, .30, .31, .56, .30, .84][i]);
+        if ((i === 0 || i === 5) && !travel) {
+          const enamel = ctx.createLinearGradient(p[0][0], p[0][1], p[2][0], p[2][1]);
+          enamel.addColorStop(0, tint(col, 1, 10));
+          enamel.addColorStop(1, tint(col, .78));
+          ctx.fillStyle = enamel;
+        }
+        ctx.fill();
       }
-      ctx.fill();
-      ctx.strokeStyle = wire ? tint(col, .9) : tint(col, i === 5 ? 1 : .64);
-      ctx.stroke();
+      if (wire) {
+        ctx.strokeStyle = this.fill ? tint(col, .56) : tint(col, facing ? 1 : .47);
+        ctx.lineWidth = facing ? 1.2 : .65;
+        ctx.stroke();
+      }
+      if (!facing) continue;
       if (visibleCorners) {
         for (const vertex of boxFaces[i]) visibleCorners.add(vertex);
       }
       if (!dim && !travel) this.hits.push({poly: p, element: e});
-      if (i === 5 && (selected || (!wire && !travel && alpha === 1))) {
-        ctx.save();
-        ctx.strokeStyle = selected ? '#f6ffe4' : col;
-        ctx.lineWidth = selected ? 2 : .7;
-        ctx.shadowColor = col;
-        ctx.shadowBlur = selected ? 7 : 3;
+      if (this.astrophage) {
+        const sample = t => {
+          const along = (t - Math.floor(t)) * 4, edge = Math.floor(along);
+          const a = p[edge], b = p[(edge + 1) % 4], u = along - edge;
+          return [lerp(a[0], b[0], u), lerp(a[1], b[1], u)];
+        };
+        drawAstrophage(ctx, sample, seconds, e.number * 6 + i, clamp(points[0][3] * .05, 1.2, 4.4));
+      }
+      // Prefer a cap for the inscription, then a broad side at edge-on angles.
+      const score = area * (i === 0 || i === 5 ? 2 : 1);
+      if (score > bestScore) {
+        bestScore = score;
+        labelFace = p;
+        labelInk = !this.fill ? col : i === 0 || i === 5 ? '#101919' : '#f2f6ec';
+      }
+    }
+    if (labelFace) {
+      if (selected) {
+        path(ctx, labelFace);
+        ctx.strokeStyle = '#f6ffe4';
+        ctx.lineWidth = 2;
         ctx.stroke();
-        ctx.restore();
       }
-      if (this.astrophage) traceBorder(ctx, p, (seconds / 2.8 + e.number * .618 + i * .13) % 1);
-      if (i !== 5) continue;
-      const [tl, tr, , bl] = p;
-      ctx.save();
-      ctx.transform(tr[0] - tl[0], tr[1] - tl[1], bl[0] - tl[0], bl[1] - tl[1], tl[0], tl[1]);
-      // Normalised coordinates keep the inscriptions attached to the box face.
-      ctx.scale(.01, .01);
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = wire ? col : '#111e22';
-      ctx.textAlign = 'left';
-      ctx.font = '500 20px monospace';
-      ctx.fillText(String(e.number), 8, 24);
-      if (this.showNames) {
-        const faceWidth = Math.hypot(tr[0] - tl[0], tr[1] - tl[1]);
-        const faceHeight = Math.hypot(bl[0] - tl[0], bl[1] - tl[1]);
-        ctx.font = '16px Arial';
-        const full = Math.min(faceWidth, faceHeight) >= 56;
-        ctx.textAlign = 'center';
-        if (full) ctx.fillText(e.name, 50, 94, 94);
-        ctx.font = 'bold ' + (e.symbol.length === 3 ? 39 : 48) + 'px Arial';
-        ctx.fillText(e.symbol, 50, full ? 69 : 77);
-      }
-      ctx.restore();
+      drawInscription(ctx, labelFace, e, this.showNames, labelInk);
     }
     if (visibleCorners) {
       for (const vertex of visibleCorners) {
@@ -463,13 +468,30 @@ export class Lattice {
     ctx.globalAlpha = 1;
   }
 }
-// The current canvas path is a visible projected face. Its perimeter sets the
-// dash period so the ember completes one circuit at every camera angle and zoom.
-function traceBorder(ctx, points, phase) {
-  let perimeter = 0;
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i], b = points[(i + 1) % points.length];
-    perimeter += Math.hypot(b[0] - a[0], b[1] - a[1]);
+// Orient the face lettering towards screen-right, including on the back and underside.
+function drawInscription(ctx, face, e, names, color) {
+  let start = 0, best = -Infinity;
+  for (let i = 0; i < 4; i++) {
+    const a = face[i], b = face[(i + 1) % 4], dx = b[0] - a[0], dy = b[1] - a[1];
+    const right = dx / (Math.hypot(dx, dy) || 1);
+    if (right > best) { start = i; best = right; }
   }
-  strokeEmber(ctx, perimeter, phase);
+  const tl = face[start], tr = face[(start + 1) % 4], bl = face[(start + 3) % 4];
+  const hx = tr[0] - tl[0], hy = tr[1] - tl[1], vx = bl[0] - tl[0], vy = bl[1] - tl[1];
+  ctx.save();
+  ctx.transform(hx / 100, hy / 100, vx / 100, vy / 100, tl[0], tl[1]);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = color;
+  ctx.textAlign = 'left';
+  ctx.font = '500 20px monospace';
+  ctx.fillText(String(e.number), 8, 24);
+  if (names) {
+    const full = Math.min(Math.hypot(hx, hy), Math.hypot(vx, vy)) >= 56;
+    ctx.textAlign = 'center';
+    ctx.font = '16px Arial';
+    if (full) ctx.fillText(e.name, 50, 94, 94);
+    ctx.font = 'bold ' + (e.symbol.length === 3 ? 39 : 48) + 'px Arial';
+    ctx.fillText(e.symbol, 50, full ? 69 : 77);
+  }
+  ctx.restore();
 }
