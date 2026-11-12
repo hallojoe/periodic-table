@@ -38,6 +38,14 @@ with webdriver.Chrome(options=options) as browser:
         wait.until(lambda _: el("lattice") == browser.switch_to.active_element)
         # Entry ends with canvas focus. Pointer selections may already focus it.
         wait.until(lambda _: el("lattice").get_attribute("aria-busy") == "false")
+        # The former miniature table occupied the lower-left corner. Only the
+        # foreground model should contribute canvas pixels once the dissolve ends.
+        assert js("""
+            const c=document.getElementById('lattice'), b=c.getContext('2d');
+            const pixels=b.getImageData(0, c.height*.80, c.width*.36, c.height*.19).data;
+            return !pixels.some((channel,i) => i%4===3 && channel!==0);
+        """), "The table is still visible in detail"
+
 
     def leave():
         el("leave").click()
@@ -105,12 +113,42 @@ with webdriver.Chrome(options=options) as browser:
     for option in ["showPaths", "showGridLabels", "showNames"]:
         assert not el(option).is_selected()
         toggle_overlay(option)
-    Select(el("effect")).select_by_visible_text("Astrophage")
-    # A stationary block table redraws as the border tracer moves.
-    before = el("lattice").screenshot_as_png
-    wait.until(lambda _: before != el("lattice").screenshot_as_png)
-    for effect in ["Wireframe", "Neon"]:
-        Select(el("effect")).select_by_visible_text(effect)
+    for option in ["astrophage", "blinkingDots"]:
+        toggle_overlay(option)
+        # Each effect animates even when enabled on its own on a stationary table.
+        before = canvas_digest()
+        wait.until(lambda _: before != canvas_digest())
+        toggle_overlay(option)
+
+    browser.execute_cdp_cmd("Emulation.setEmulatedMedia", {"features":[{"name":"prefers-reduced-motion","value":"reduce"}]})
+    for theme in ["Neon", "Aurora", "Ocean", "Ember"]:
+        Select(el("theme")).select_by_visible_text(theme)
+        assert js("""
+            const family = document.querySelector('[data-family="nonmetal"] .swatch');
+            const badge = document.querySelector('#inspect .symbol');
+            return getComputedStyle(family).backgroundColor === getComputedStyle(badge).color;
+        """)
+        for wire in [False, True]:
+            if wire:
+                toggle_overlay("wireframe")
+            plain = canvas_digest()
+            toggle_overlay("astrophage")
+            border = canvas_digest()
+            toggle_overlay("blinkingDots")
+            both = canvas_digest()
+            toggle_overlay("astrophage")
+            dots = canvas_digest()
+            assert len({plain, border, both, dots}) == 4, (theme, wire)
+            toggle_overlay("blinkingDots")
+            assert plain == canvas_digest()
+        toggle_overlay("wireframe")
+    Select(el("theme")).select_by_visible_text("Aurora")
+    for option in ["wireframe", "astrophage", "blinkingDots"]:
+        toggle_overlay(option)
+    el("reset").click()
+    Select(el("metric")).select_by_value("number")
+    browser.save_screenshot(str(output / "appearance.png"))
+    el("flat").click()
     el("atoms").click()
     assert el("atoms").get_attribute("aria-pressed") == "true"
     click_cell(2, 2)
@@ -118,7 +156,6 @@ with webdriver.Chrome(options=options) as browser:
     click_cell(2, 2)
     detail_open()
     assert "1797" in el("inspect").text
-    browser.execute_cdp_cmd("Emulation.setEmulatedMedia", {"features":[{"name":"prefers-reduced-motion","value":"reduce"}]})
     # With orbital motion paused, changing pixels verifies manual rotation.
     el("lattice").send_keys(Keys.ARROW_RIGHT)
     before = el("lattice").screenshot_as_png

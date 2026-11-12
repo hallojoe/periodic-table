@@ -2,7 +2,7 @@
 
 [Open the periodic table](https://hallojoe.github.io/periodic-table/)
 
-Switch between 3D element blocks and animated Bohr models in the same 18-group layout. Click an element to select it. Click it again to pull back from the table and rotate its atom beside its factual record.
+Switch between 3D element blocks and animated Bohr models in the same 18-group layout. Click an element to select it. Click it again and the table dissolves along its Fibonacci paths, leaving a rotatable atom beside its factual record.
 
 ![Matter Atlas with element blocks and property-height controls](https://hallojoe.github.io/periodic-table/screenshots/lattice.png)
 
@@ -10,7 +10,7 @@ Switch between 3D element blocks and animated Bohr models in the same 18-group l
 
 Choose a height property and display it above the zero plane, below it, or relative to its median. The property choices include calculated atomic radius, atomic number, atomic weight, occupied shells, melting and boiling points, and liquid temperature range. Unavailable values remain selectable at the baseline.
 
-Use **Display** to toggle path and grid lines, grid labels, and element names independently. Astrophage traces the box borders with a moving ember.
+Use **Display** to toggle path and grid lines, grid labels, and element names independently. Choose Neon, Aurora, Ocean or Ember, then combine wireframe, Astrophage borders and blinking dots independently.
 
 Drag to orbit, Shift-drag to pan, and use the wheel or the zoom buttons to change scale. Search with **/** or navigate with the arrow keys. In detail view, drag or use the arrow keys to rotate the model. **Escape** restores the prior table view. The optional theoretical row adds elements 119 and 120.
 

@@ -1,6 +1,7 @@
 import {heightMapping, metrics} from './heights.js';
 import {icon} from './icons.js';
-import {families, Lattice, reduced} from './lattice.js';
+import {Lattice, reduced} from './lattice.js';
+import {families, palettes, themes} from './appearance.js';
 
 const $ = id => document.getElementById(id);
 const explorer = $('explorer'), help = $('help'), search = $('search'), matches = $('matches');
@@ -16,9 +17,9 @@ const massValue = e => e.mass === '—' ? 'Unknown' : e.mass.startsWith('[') ? e
 const measure = v => v == null ?
     'Unknown' :
     Number((v - 273.15).toFixed(2)).toLocaleString('en-US') + ' °C · ' + v + ' K';
-const swatch = category => '<i class="swatch" style="--c:' + families[category][1] + '"></i>';
+const swatch = category => '<i class="swatch" style="--c:' + table.colors[category] + '"></i>';
 const family = e =>
-    '<span class="family-tag">' + swatch(e.category) + families[e.category][0] + '</span>';
+    '<span class="family-tag">' + swatch(e.category) + families[e.category] + '</span>';
 const facts = items => '<dl class="facts">' +
     items.map(([k, v]) => '<div><dt>' + escape(k) + '</dt><dd>' + escape(v) + '</dd></div>')
         .join('') +
@@ -58,7 +59,7 @@ function renderRecord() {
   ];
   panel.innerHTML = '<h2>' + icon(detailed ? 'atom' : 'focus') +
       (detailed ? 'Element record' : 'Selection') + '</h2>' +
-      '<div class="identity"><div class="symbol" style="--c:' + families[e.category][1] +
+      '<div class="identity"><div class="symbol" style="--c:' + table.colors[e.category] +
       '"><small>' + e.number + '</small><strong>' + escape(e.symbol) + '</strong></div><div><h3>' +
       escape(e.name) + '</h3>' + family(e) + '</div></div>' +
       (detailed ? '<p class="summary">' + escape(e.summary) + '</p>' : '') +
@@ -117,6 +118,7 @@ function detailUI(open) {
   document.querySelector('.workspace').classList.toggle('details', open);
   $('settings').hidden = open;
   $('camera').hidden = open;
+  $('count').hidden = open;
   $('leave').hidden = !open;
   $('legend').inert = open;
   document.querySelector('.representation').inert = open;
@@ -159,7 +161,7 @@ function legends() {
   $('families').innerHTML =
       available
           .map(
-              ([key, [name]]) => '<button data-family="' + key + '" aria-pressed="' +
+              ([key, name]) => '<button data-family="' + key + '" aria-pressed="' +
                   (key === table.filter) + '" class="' + (key === table.filter ? 'active' : '') +
                   '">' + swatch(key) + name + '</button>')
           .join('');
@@ -196,7 +198,7 @@ function setExtended() {
   table.drawSoon();
 }
 $('extended').onchange = setExtended;
-for (const option of ['showPaths', 'showGridLabels', 'showNames']) {
+for (const option of ['wireframe', 'astrophage', 'blinkingDots', 'showPaths', 'showGridLabels', 'showNames']) {
   const control = $(option);
   const update = () => {
     table[option] = control.checked;
@@ -205,8 +207,12 @@ for (const option of ['showPaths', 'showGridLabels', 'showNames']) {
   control.onchange = update;
   update();
 }
-$('effect').onchange = e => {
-  table.effect = e.target.value;
+$('theme').innerHTML = themes.map(theme => '<option>' + theme + '</option>').join('');
+$('theme').onchange = () => {
+  table.colors = palettes[$('theme').value];
+  legends();
+  renderRecord();
+  if (!matches.hidden) runSearch();
   table.drawSoon();
 };
 $('minus').onclick = () => table.zoomBy(1 / 1.2);

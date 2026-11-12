@@ -4,9 +4,23 @@
 
 ## Two views in one scene
 
-**Blocks** extrudes columns from the zero plane. **Bohr models** places each atom at the height of its column endpoint, with a stem connecting it to the plane. Both representations preserve the conventional table positions, the detached series, the active height method, selection and camera. Box faces retain their chemical-family colours in Astrophage mode. A bright ember travels around the visible box edges. Reduced-motion mode holds the ember still.
+**Blocks** extrudes columns from the zero plane. **Bohr models** places each atom at the height of its column endpoint, with a stem connecting it to the plane. Both representations preserve the conventional table positions, the detached series, the active height method, selection and camera. The legend, search results and record use the active chemical-family palette.
 
 ![Bohr models in the table with radius heights centered on the median](https://hallojoe.github.io/periodic-table/screenshots/bohr-table.png)
+
+## Color and rendering
+
+Choose **Neon**, **Aurora**, **Ocean** or **Ember**. The three rendering switches work independently across all four themes.
+
+| Switch | Blocks | Bohr models |
+| --- | --- | --- |
+| Wireframe | Outlined faces and themed symbols | Outlined nucleus and particles in detail |
+| Astrophage borders | A moving ember on visible edges | An ember on the outermost visible shell path |
+| Blinking dots | Independently pulsing lights at visible corners | A pulsing nucleus in the table and glowing electrons in detail |
+
+Reduced motion freezes the border and dot phases. The dots use soft additive light and staggered phases inspired by [Hilbert Space](https://github.com/hallojoe/hilbert-space).
+
+![Aurora wireframe blocks with Astrophage borders and blinking dots](https://hallojoe.github.io/periodic-table/screenshots/appearance.png)
 
 ## Scene overlays
 
@@ -39,11 +53,11 @@ The radius lookup supplements the v1 element records and covers hydrogen through
 
 ## Selection and detail
 
-Click once to select an element and read its current height property. Click the same element again or use **Inspect element** to see its full record. The camera retreats, leaving the small, dim table in the scene behind the foreground atom. Drag to rotate the model on two axes, or use the arrow keys. **Back to table** or **Escape** returns to the original camera and selection.
+Click once to select an element and read its current height property. Click the same element again or use **Inspect element** to see its full record. In 420 ms the elements follow their opening Fibonacci trajectories in reverse, shrinking and fading away. The selected atom moves into focus. Drag to rotate the model on two axes, or use the arrow keys. **Back to table** or **Escape** returns to the prior camera, selection and appearance as the table reassembles.
 
-![Beryllium's rotatable model with its full record and the distant table](https://hallojoe.github.io/periodic-table/screenshots/beryllium.png)
+![Beryllium in detail after the table has dissolved](https://hallojoe.github.io/periodic-table/screenshots/beryllium.png)
 
-Search by name, symbol, or atomic number. A search result selects its element, including theoretical entries. Focus the table and use Enter to inspect. Reduced-motion settings skip camera animations and pause orbital motion while retaining manual rotation.
+Search by name, symbol, or atomic number. A search result selects its element, including theoretical entries. Focus the table and use Enter to inspect. Reduced-motion settings skip the dissolve and assembly animations and pause orbital motion while retaining manual rotation.
 
 ## Browser checks
 

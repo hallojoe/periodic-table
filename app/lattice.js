@@ -1,21 +1,8 @@
+import {drawBlinkingDot, palettes, strokeEmber} from './appearance.js';
 import {heightMapping} from './heights.js';
 import {drawAtom} from './model.js';
 
-// All points are in table coordinates. One unit separates neighbouring group centres.
-export const families = {
-  alkali: ['Alkali metals', '#f29c74'],
-  alkaline: ['Alkaline earth metals', '#edcc77'],
-  transition: ['Transition metals', '#7eabdc'],
-  'post-transition': ['Post-transition metals', '#81c5bd'],
-  metalloid: ['Metalloids', '#a2cf97'],
-  nonmetal: ['Other nonmetals', '#c6e58f'],
-  halogen: ['Halogens', '#cab0e6'],
-  noble: ['Noble gases', '#e7a0c2'],
-  lanthanide: ['Lanthanides', '#8ecedc'],
-  actinide: ['Actinides', '#b4b2e8'],
-  unknown: ['Unknown properties', '#a6adac'],
-  theoretical: ['Theoretical', '#e4d8c0']
-};
+// One unit separates neighbouring group centres in table coordinates.
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -72,7 +59,10 @@ export class Lattice {
       mapping: heightMapping(elements, 'number', 'up'),
       atomYaw: 0,
       atomPitch: 0,
-      effect: 'Neon',
+      colors: palettes.Neon,
+      wireframe: false,
+      astrophage: false,
+      blinkingDots: false,
       showPaths: true,
       showGridLabels: true,
       showNames: true,
@@ -223,6 +213,7 @@ export class Lattice {
     this.drag = null;
     this.locked = true;
     if (open) {
+      this.detailElement = this.elements.find(e => e.number === this.selected);
       this.atomYaw = this.flat ? 0 : this.yaw;
       this.atomPitch = this.flat ? 0 : this.pitch;
     }
@@ -238,32 +229,33 @@ export class Lattice {
     this.hits = [];
     const intro = reduced.matches ? 1 : clamp((now - this.start) / 1650, 0, 1);
     const flight = this.flight;
-    const t = flight ? (reduced.matches ? 1 : clamp((now - flight.start) / 850, 0, 1)) : 1;
-    if (flight) this.detail = lerp(flight.from, flight.to, smooth(t));
-    const travel = this.detail;
+    const t = flight ? (reduced.matches ? 1 : clamp((now - flight.start) / (flight.to ? 420 : 600), 0, 1)) : 1;
+    if (flight) this.detail = lerp(flight.from, flight.to, t);
+    // Entry runs the original seeded paths backwards. Returning runs them forwards.
+    const assembly = Math.min(intro, 1 - this.detail);
+    const travel = smooth(this.detail);
     const yaw = this.flat ? 0 : this.yaw, pitch = this.flat ? 0 : this.pitch;
     const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
     const roll = this.flat ? 0 : -.025, cr = Math.cos(roll), sr = Math.sin(roll);
-    const scale = Math.min((w - 30) / 19.6, (h - 74) / (this.extended ? 12.4 : 11.1)) *
-        lerp(this.zoom, 1, travel);
-    const eye = lerp(50, 295, travel);
-    const centreX = lerp(w * .5, w * .20, travel) + this.panX * (1 - travel);
-    const centreY = lerp(h * .5, h * .83, travel) + this.panY * (1 - travel);
+    const scale = Math.min((w - 30) / 19.6, (h - 74) / (this.extended ? 12.4 : 11.1)) * this.zoom;
+    const centreX = w * .5 + this.panX;
+    const centreY = h * .5 + this.panY;
     const project = ([x, y, z]) => {
       y -= this.extended ? .75 : .1;
       const rx = cy * x + sy * z, rz = -sy * x + cy * z, ry = cp * y - sp * rz,
             depth = sp * y + cp * rz;
-      const k = scale * 50 / (eye - depth);
+      const k = scale * 50 / (50 - depth);
       return [centreX + (rx * cr - ry * sr) * k, centreY + (rx * sr + ry * cr) * k, depth, k];
     };
     const clock = reduced.matches ? .32 : now * .00014;
-    const list = this.list();
+    const seconds = reduced.matches ? 0 : now / 1000;
+    const list = assembly > 0 ? this.list() : [];
     const boxes =
         list.map(e => {
               let [x, y] = pose(e);
               const value = this.mapping.height(e), missing = value === null;
               const [sx, sy, sz, delay] = this.startPoints.get(e.number);
-              const progress = smooth(clamp((intro - delay * .63) / .37, 0, 1)), k = 1 - progress;
+              const progress = smooth(clamp((assembly - delay * .63) / .37, 0, 1)), k = 1 - progress;
               x += sx * k;
               y += sy * k;
               const base = sz * k, tip = base + (value ?? 0), s = .417 * (.07 + .93 * progress);
@@ -281,7 +273,7 @@ export class Lattice {
               };
             })
             .sort((a, b) => a.depth - b.depth);
-    if (intro === 1 && this.showPaths) {
+    if (intro === 1 && travel < 1 && this.showPaths) {
       ctx.strokeStyle = 'rgba(153,191,184,' + (.20 * (1 - travel)) + ')';
       ctx.lineWidth = .65;
       const line = (a, b) => {
@@ -312,16 +304,16 @@ export class Lattice {
     }
     for (const box of boxes) {
       if (this.view === 'blocks') {
-        this.drawBox(ctx, box, travel, reduced.matches ? 0 : now / 2800);
+        this.drawBox(ctx, box, travel, seconds);
         continue;
       }
       const {e, tip, anchor, missing, cell} = box;
       if (!box.alpha) continue;
       const dim = this.filter && this.filter !== e.category;
       const selected = e.number === this.selected;
-      const color = families[e.category][1];
+      const color = missing ? '#8b9998' : this.colors[e.category];
       ctx.save();
-      ctx.globalAlpha = box.alpha * (missing ? .43 : dim ? .14 : 1) * (1 - .72 * travel);
+      ctx.globalAlpha = box.alpha * (missing ? .43 : dim ? .14 : 1);
       if (this.showPaths) {
         ctx.strokeStyle = color;
         ctx.lineWidth = .75;
@@ -341,7 +333,10 @@ export class Lattice {
         clock,
         color,
         showPaths: this.showPaths,
-        wire: this.effect === 'Wireframe'
+        wire: this.wireframe,
+        astrophage: this.astrophage,
+        blinkingDots: this.blinkingDots,
+        seconds
       });
       if (!dim && !travel) this.hits.push({poly: cell, element: e});
       if (selected && !travel) {
@@ -360,25 +355,26 @@ export class Lattice {
       ctx.restore();
     }
     if (travel > 0) {
-      const source = boxes.find(b => b.e.number === this.selected);
-      if (source) {
-        const {e, tip} = source;
-        const extent = Math.min(w * .34, h * .34);
-        ctx.save();
-        ctx.globalAlpha = smooth(travel);
-        drawAtom(ctx, e, {
-          x: lerp(tip[0], w * .53, travel),
-          y: lerp(tip[1], h * .45, travel),
-          size: lerp(tip[3] * .35, extent, travel),
-          yaw: this.atomYaw,
-          pitch: this.atomPitch,
-          clock,
-          color: families[e.category][1],
-          showPaths: this.showPaths,
-          detailed: true
-        });
-        ctx.restore();
-      }
+      const e = this.detailElement;
+      const origin = project([...pose(e), this.mapping.height(e) ?? 0]);
+      const extent = Math.min(w * .34, h * .34);
+      ctx.save();
+      ctx.globalAlpha = travel;
+      drawAtom(ctx, e, {
+        x: lerp(origin[0], w * .53, travel),
+        y: lerp(origin[1], h * .45, travel),
+        size: lerp(origin[3] * .35, extent, travel),
+        yaw: this.atomYaw,
+        pitch: this.atomPitch,
+        clock, seconds,
+        color: this.colors[e.category],
+        showPaths: this.showPaths,
+        wire: this.wireframe,
+        astrophage: this.astrophage,
+        blinkingDots: this.blinkingDots,
+        detailed: true
+      });
+      ctx.restore();
     }
     if (flight && t === 1) {
       this.flight = null;
@@ -391,18 +387,18 @@ export class Lattice {
     }
     if (intro < 1 || this.flight)
       this.drawSoon();
-    else if ((this.detail || this.view === 'atoms' || this.effect === 'Astrophage') && !reduced.matches && !document.hidden) {
+    else if ((this.detail || this.view === 'atoms' || this.astrophage || this.blinkingDots) && !reduced.matches && !document.hidden) {
       clearTimeout(this.tick);
-      this.tick = setTimeout(() => this.drawSoon(), this.detail || this.effect === 'Astrophage' ? 35 : 90);
+      this.tick = setTimeout(() => this.drawSoon(), this.detail || this.astrophage || this.blinkingDots ? 35 : 90);
     }
   }
-  drawBox(ctx, {e, points, alpha, missing}, travel, cycles) {
+  drawBox(ctx, {e, points, alpha, missing}, travel, seconds) {
     if (alpha <= .001) return;
     const selected = e.number === this.selected, dim = this.filter && this.filter !== e.category;
-    const base = families[e.category][1], wire = this.effect === 'Wireframe',
-          hot = this.effect === 'Astrophage';
-    const col = missing ? '#8b9998' : base;
-    ctx.globalAlpha = alpha * (1 - .72 * travel) * (dim ? .16 : missing ? .55 : 1);
+    const wire = this.wireframe;
+    const col = missing ? '#8b9998' : this.colors[e.category];
+    const visibleCorners = this.blinkingDots ? new Set() : null;
+    ctx.globalAlpha = alpha * (dim ? .16 : missing ? .55 : 1);
     ctx.lineWidth = wire ? .9 : .8;
     const faces =
         boxFaces.map((ids, i) => ({i, p: ids.map(id => points[id])}))
@@ -421,12 +417,11 @@ export class Lattice {
       ctx.fill();
       ctx.strokeStyle = wire ? tint(col, .9) : tint(col, i === 5 ? 1 : .64);
       ctx.stroke();
-      if (hot && travel < .8) {
-        traceBorder(ctx, p, (cycles + e.number * .618 + i * .13) % 1);
+      if (visibleCorners) {
+        for (const vertex of boxFaces[i]) visibleCorners.add(vertex);
       }
       if (!dim && !travel) this.hits.push({poly: p, element: e});
-      if (i !== 5) continue;
-      if (selected || (!wire && !hot && !travel && alpha === 1)) {
+      if (i === 5 && (selected || (!wire && !travel && alpha === 1))) {
         ctx.save();
         ctx.strokeStyle = selected ? '#f6ffe4' : col;
         ctx.lineWidth = selected ? 2 : .7;
@@ -435,6 +430,8 @@ export class Lattice {
         ctx.stroke();
         ctx.restore();
       }
+      if (this.astrophage) traceBorder(ctx, p, (seconds / 2.8 + e.number * .618 + i * .13) % 1);
+      if (i !== 5) continue;
       const [tl, tr, , bl] = p;
       ctx.save();
       ctx.transform(tr[0] - tl[0], tr[1] - tl[1], bl[0] - tl[0], bl[1] - tl[1], tl[0], tl[1]);
@@ -457,6 +454,12 @@ export class Lattice {
       }
       ctx.restore();
     }
+    if (visibleCorners) {
+      for (const vertex of visibleCorners) {
+        const [x, y, , scale] = points[vertex];
+        drawBlinkingDot(ctx, x, y, clamp(scale * .14, 2, 9), col, seconds, e.number * 8 + vertex);
+      }
+    }
     ctx.globalAlpha = 1;
   }
 }
@@ -468,19 +471,5 @@ function traceBorder(ctx, points, phase) {
     const a = points[i], b = points[(i + 1) % points.length];
     perimeter += Math.hypot(b[0] - a[0], b[1] - a[1]);
   }
-  if (perimeter < 2) return;
-  ctx.save();
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = '#ff713b';
-  ctx.lineWidth = 1.45;
-  ctx.setLineDash([perimeter * .24, perimeter * .76]);
-  ctx.lineDashOffset = -phase * perimeter;
-  ctx.stroke();
-  ctx.strokeStyle = '#fff6cc';
-  ctx.lineWidth = 1.6;
-  ctx.setLineDash([perimeter * .055, perimeter * .945]);
-  ctx.lineDashOffset -= perimeter * .185;
-  ctx.stroke();
-  ctx.restore();
+  strokeEmber(ctx, perimeter, phase);
 }

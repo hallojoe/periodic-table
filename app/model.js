@@ -1,3 +1,4 @@
+import {drawBlinkingDot, strokeEmber} from './appearance.js';
 // An orthographic local frame projected at the atom's perspective scale in the lattice.
 // Ellipses and moving electrons use the same rotated shell basis.
 const tau = 2 * Math.PI;
@@ -12,21 +13,23 @@ function orbitAxes(index) {
   }
   return shells.get(index);
 }
-function particle(ctx, x, y, r, color, highlight, detailed) {
-  if (detailed) {
+function particle(ctx, x, y, r, color, highlight, wire) {
+  if (wire) {
+    ctx.strokeStyle = highlight;
+    ctx.lineWidth = 1.1;
+  } else {
     const g = ctx.createRadialGradient(x - r * .32, y - r * .38, r * .04, x, y, r);
     g.addColorStop(0, '#f4faf4');
     g.addColorStop(.33, highlight);
     g.addColorStop(1, color);
     ctx.fillStyle = g;
-  } else
-    ctx.fillStyle = highlight;
+  }
   ctx.beginPath();
   ctx.arc(x, y, r, 0, tau);
-  ctx.fill();
+  wire ? ctx.stroke() : ctx.fill();
 }
 export function drawAtom(
-    ctx, e, {x, y, size, yaw, pitch, clock, color, detailed = false, wire = false, roll = 0, showPaths = true}) {
+    ctx, e, {x, y, size, yaw, pitch, clock, color, detailed = false, wire = false, roll = 0, showPaths = true, astrophage = false, blinkingDots = false, seconds = 0}) {
   if (size < .3) return;
   const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
   function rotate([x, y, z]) {
@@ -52,21 +55,30 @@ export function drawAtom(
       ctx.strokeStyle = color;
       ctx.lineWidth = detailed ? 1.2 : .65;
       ctx.stroke();
+      if (astrophage && i === e.shells.length - 1) {
+        // Semiaxes of the orthogonally projected outer circle.
+        const b = r * Math.abs(u[0] * v[1] - u[1] * v[0]);
+        const perimeter = Math.PI * (3 * (r + b) - Math.sqrt((3 * r + b) * (r + 3 * b)));
+        strokeEmber(ctx, perimeter, (seconds / 2.8 + e.number * .618) % 1);
+      }
       ctx.globalAlpha = ringAlpha;
     }
     for (let j = 0; j < count; j++) {
       const angle = tau * j / count + clock * (1 - .055 * i) + i * 1.53 + .9, c = Math.cos(angle),
             s = Math.sin(angle);
-      const electron = [r * (u[0] * c + v[0] * s), r * (u[1] * c + v[1] * s)];
+      const electron = [r * (u[0] * c + v[0] * s), r * (u[1] * c + v[1] * s), i * 64 + j];
       ((u[2] * c + v[2] * s) < 0 ? behind : front).push(electron);
     }
   });
   const er =
       detailed ? Math.max(2, size * (e.number < 15 ? .035 : .018)) : Math.max(.45, size * .057);
   const electrons = points => {
-    if (detailed)
-      for (const [px, py] of points) particle(ctx, px, py, er, '#344f4e', color, true);
-    else {
+    if (detailed) {
+      for (const [px, py, id] of points) {
+        particle(ctx, px, py, er, '#344f4e', color, wire);
+        if (blinkingDots) drawBlinkingDot(ctx, px, py, er * 3.2, color, seconds, id);
+      }
+    } else {
       ctx.fillStyle = color;
       ctx.beginPath();
       for (const [px, py] of points) {
@@ -96,13 +108,14 @@ export function drawAtom(
                 })
             .sort((a, b) => a.p[2] - b.p[2]);
     for (const {p, k} of cluster)
-      particle(ctx, p[0], p[1], pr, k % 2 ? '#36434c' : '#334d39', k % 2 ? '#99aabd' : color, true);
+      particle(ctx, p[0], p[1], pr, k % 2 ? '#36434c' : '#334d39', k % 2 ? '#99aabd' : color, wire);
   } else {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(0, 0, Math.max(.7, size * .18), 0, tau);
     ctx.strokeStyle = color;
     wire ? ctx.stroke() : ctx.fill();
+    if (blinkingDots) drawBlinkingDot(ctx, 0, 0, Math.max(3, size * .53), color, seconds, e.number);
   }
   electrons(front);
   ctx.restore();
