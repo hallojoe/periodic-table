@@ -91,7 +91,10 @@ with webdriver.Chrome(options=options) as browser:
     ready()
     assert el("count").text == "118 ELEMENTS"
     check_overlays()
-    sidebar_width = el("settings").rect["width"]
+    sidebar = browser.find_element(By.CSS_SELECTOR, ".inspector")
+    sidebar_width = sidebar.rect["width"]
+    expected_width = js("return Math.min(640, Math.max(310, innerWidth * 0.38))")
+    assert abs(sidebar_width - expected_width) <= 1
     choose("C")
     assert el("inspect").find_element(By.TAG_NAME, "h3").text == "Carbon"
     assert not el("leave").is_displayed()
@@ -108,8 +111,9 @@ with webdriver.Chrome(options=options) as browser:
     assert not el("leave").is_displayed()
     click_cell(14, 2)
     detail_open()
-    assert el("inspect").rect["width"] > sidebar_width * 1.3
+    assert sidebar.rect["width"] == sidebar_width
     leave()
+    assert sidebar.rect["width"] == sidebar_width
     for option in ["showPaths", "showGridLabels", "showNames"]:
         assert not el(option).is_selected()
         toggle_overlay(option)
