@@ -46,15 +46,29 @@ with webdriver.Chrome(options=options) as browser:
     def toggle_overlay(option):
         browser.find_element(By.CSS_SELECTOR, f'label:has(#{option})').click()
 
+    def canvas_digest():
+        # After camera return the grid resizes. Sample the settled canvas pixels
+        # directly so focus outlines and overlapping HTML controls are excluded.
+        return browser.execute_async_script("""
+            const done = arguments[0];
+            requestAnimationFrame(() => requestAnimationFrame(async () => {
+                const c = document.getElementById("lattice");
+                const pixels = c.getContext("2d").getImageData(0,0,c.width,c.height);
+                const hash = await crypto.subtle.digest("SHA-256", pixels.data);
+                done(Array.from(new Uint8Array(hash)).join(","));
+            }));
+        """)
+
     def check_overlays():
         for option in ["showPaths", "showGridLabels", "showNames"]:
             assert el(option).is_selected()
-            before = el("lattice").screenshot_as_png
+            before = canvas_digest()
             toggle_overlay(option)
             assert not el(option).is_selected()
-            wait.until(lambda _: before != el("lattice").screenshot_as_png)
+            assert before != canvas_digest(), f"{option} should change the drawing"
             toggle_overlay(option)
-            wait.until(lambda _: before == el("lattice").screenshot_as_png)
+            assert el(option).is_selected()
+            assert before == canvas_digest(), f"{option} should restore the same drawing"
 
     def click_cell(col, row, height=0):
         # Front elevation of the normal table, including perspective.
